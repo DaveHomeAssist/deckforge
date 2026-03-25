@@ -928,6 +928,16 @@ header {
     min-width: 44px;
   }
 }
+
+/* Context Pages */
+.page-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px; }
+.page-tab { padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s; }
+.page-tab.active { background:var(--accent,#7c6cf0); color:#fff; border-color:var(--accent,#7c6cf0); }
+.page-tab:hover:not(.active) { background:var(--s2,#1a1a22); color:var(--fg,#e8e9ed); }
+.page-tab.add-page { color:var(--accent,#7c6cf0); border-style:dashed; }
+/* Hotkey capture */
+#hotkeyRecordBtn { padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--s2,#1a1a22); color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.15s; margin-top:4px; }
+#hotkeyRecordBtn:hover { border-color:var(--accent,#7c6cf0); color:var(--accent,#7c6cf0); }
 </style>
 </head>
 <body>
@@ -949,6 +959,8 @@ header {
     <button class="btn" onclick="clearSelected()">clear key</button>
     <button class="btn" onclick="clearAll()">clear all</button>
     <button class="btn btn-primary" onclick="exportJSON()">export JSON</button>
+    <button class="btn" onclick="shareLayout()">share link</button>
+    <button class="btn btn-ghost" onclick="undoLayout()" title="Undo last change">↩ undo</button>
   </div>
 </header>
 
@@ -1115,6 +1127,7 @@ header {
     <div class="panel-section">
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="downloadJSON()">download .json</button>
       <button class="btn" style="width:100%" onclick="importJSON()">import .json</button>
+      <button class="btn" style="width:100%;margin-top:8px" onclick="resetDefaults()">reset to defaults</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
     </div>
     <div class="panel-section">
@@ -1171,6 +1184,8 @@ const WHEEL_APPS = ['VS Code / Cursor','OBS Studio','vMix','Bambu Studio','Rekor
 let currentDevice = 'xl';
 let selectedKey = null;
 let selectedZone = 'green';
+let currentPage = 'main';
+let recordingHotkey = false;
 
 // ── DATA ──────────────────────────────────────────────────────────
 let state = {
@@ -1179,6 +1194,13 @@ let state = {
   profiles: [
     { id: 'main', name: 'Main', active: true }
   ],
+  pages: {
+    main: { name: 'Main', icon: '🏠' },
+    dev:  { name: 'Dev Session', icon: '⚗️' },
+    live: { name: 'Live Show', icon: '🎬' },
+    print:{ name: 'Print Monitor', icon: '🖨️' },
+  },
+  pageKeys: {},
   keys: {},
   wheelProfiles: [
     {
@@ -1253,6 +1275,7 @@ function init() {
   renderGrid();
   renderPanelTabs();
   renderExport();
+renderPageTabs();
   updateWheelSelect();
   renderWheelBindings(state.activeWheelProfile);
 }
@@ -1738,6 +1761,109 @@ function toast(msg) {
 
 // ── GO ────────────────────────────────────────────────────────────
 init();
+
+
+// ── CONTEXT PAGES ──────────────────────────────────────────────────
+function renderPageTabs() {
+  const container = document.getElementById('pageTabs');
+  if (!container) return;
+  const pages = Object.entries(state.pages);
+  container.innerHTML = pages.map(([id, p]) =>
+    `<button class="page-tab ${id === currentPage ? 'active' : ''}" onclick="switchPage('${id}')">
+      <span>${p.icon}</span> ${p.name}
+    </button>`
+  ).join('') + `<button class="page-tab add-page" onclick="addPage()">+</button>`;
+}
+
+function switchPage(pageId) {
+  if (!state.pages[pageId]) return;
+  // Save current keys to pageKeys
+  state.pageKeys[currentPage] = JSON.parse(JSON.stringify(state.keys));
+  // Load target page keys
+  currentPage = pageId;
+  if (state.pageKeys[pageId]) {
+    state.keys = JSON.parse(JSON.stringify(state.pageKeys[pageId]));
+  } else {
+    state.keys = {};
+  }
+  selectedKey = null;
+  renderGrid();
+  renderSidebar();
+  renderPageTabs();
+  renderExport();
+  document.getElementById('noKeyMsg').style.display = 'block';
+  document.getElementById('keyEditor').style.display = 'none';
+  toast('Switched to ' + state.pages[pageId].name);
+}
+
+function addPage() {
+  const name = prompt('Page name:');
+  if (!name) return;
+  const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  if (state.pages[id]) { toast('Page already exists'); return; }
+  const icon = prompt('Page icon (emoji):', '📄') || '📄';
+  state.pages[id] = { name, icon };
+  state.pageKeys[id] = {};
+  switchPage(id);
+}
+
+function deletePage(pageId) {
+  if (pageId === 'main') { toast('Cannot delete Main page'); return; }
+  if (!confirm('Delete page ' + state.pages[pageId]?.name + '?')) return;
+  delete state.pages[pageId];
+  delete state.pageKeys[pageId];
+  if (currentPage === pageId) switchPage('main');
+  renderPageTabs();
+}
+
+function renamePage(pageId) {
+  const page = state.pages[pageId];
+  if (!page) return;
+  const name = prompt('New name:', page.name);
+  if (!name) return;
+  page.name = name;
+  renderPageTabs();
+}
+
+// ── HOTKEY CAPTURE ──────────────────────────────────────────────────
+function startHotkeyCapture() {
+  recordingHotkey = true;
+  const btn = document.getElementById('hotkeyRecordBtn');
+  if (btn) {
+    btn.textContent = '⏺ Press keys...';
+    btn.style.background = '#ef4444';
+    btn.style.color = '#fff';
+  }
+  document.addEventListener('keydown', captureHotkey, { once: true });
+}
+
+function captureHotkey(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const parts = [];
+  if (e.metaKey) parts.push('Cmd');
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  const key = e.key;
+  if (!['Meta','Control','Alt','Shift'].includes(key)) {
+    parts.push(key.length === 1 ? key.toUpperCase() : key);
+  }
+  const combo = parts.join('+');
+  const input = document.getElementById('fActionValue');
+  if (input && combo) {
+    input.value = combo;
+    updateKey();
+  }
+  recordingHotkey = false;
+  const btn = document.getElementById('hotkeyRecordBtn');
+  if (btn) {
+    btn.textContent = '⏺ Record';
+    btn.style.background = '';
+    btn.style.color = '';
+  }
+  toast('Captured: ' + combo);
+}
 </script>
 </body>
 </html>
