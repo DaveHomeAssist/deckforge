@@ -96,6 +96,47 @@ input, select, textarea { font-family: inherit; }
 .format-tab.active { background: var(--bg3); color: var(--text); border-color: var(--text2); }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--accent); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s ease; pointer-events: none; z-index: 100; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Anticipatory UX */
+.key.suggested { border-color: var(--accent) !important; animation: pulse-suggest 1.5s ease-in-out infinite; }
+@keyframes pulse-suggest { 0%,100% { box-shadow: 0 0 0 0 rgba(124,108,240,0); } 50% { box-shadow: 0 0 0 3px rgba(124,108,240,0.25); } }
+.key.zone-highlight { opacity: 1 !important; }
+.key.zone-dim { opacity: 0.35; }
+.recent-emojis { display: flex; gap: 2px; padding: 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; min-height: 32px; align-items: center; }
+.recent-label { font-size: 9px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 6px; white-space: nowrap; }
+.zone-suggest { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 1px dashed; margin-top: 4px; }
+.zone-suggest:hover { opacity: 1; }
+.quick-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.quick-act { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.quick-act:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.next-key-bar { display: flex; gap: 6px; align-items: center; padding: 8px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; }
+.next-key-bar span { font-size: 11px; color: var(--text2); }
+.next-key-bar button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; }
+.next-key-bar button:hover { background: var(--accent); color: #fff; }
+.autosave-badge { font-size: 10px; color: var(--green); display: flex; align-items: center; gap: 4px; }
+.restore-banner { padding: 10px 14px; background: var(--accent)15; border: 1px solid var(--accent)40; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.restore-banner span { font-size: 12px; color: var(--text2); }
+
+/* Mobile */
+@media (max-width: 800px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .panel { border-left: none; border-top: 1px solid var(--border); max-height: 50vh; overflow-y: auto; }
+  .key { width: 64px; height: 64px; }
+  .key-icon { font-size: 20px; }
+  .key-label { font-size: 8px; }
+  .grid { gap: 4px; }
+  .header { flex-wrap: wrap; gap: 8px; }
+  .device-tabs { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  .key { width: 52px; height: 52px; }
+  .key-icon { font-size: 18px; }
+  .key-label { font-size: 7px; max-width: 48px; }
+  .main { padding: 10px; }
+  .panel { padding: 12px; }
+  .header { padding: 10px 12px; }
+  .header h1 { font-size: 15px; }
+}
 </style>
 </head>
 <body>
@@ -221,6 +262,89 @@ const SEED_WHEEL = [
   },
 ];
 
+// ── LocalStorage Persistence ─────────────────────────────────────────────────
+
+const LS_KEY = 'deckforge_state';
+const LS_PREFS = 'deckforge_prefs';
+
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(LS_PREFS)) || {}; } catch { return {}; }
+}
+function savePrefs(patch) {
+  const prefs = { ...loadPrefs(), ...patch };
+  localStorage.setItem(LS_PREFS, JSON.stringify(prefs));
+  return prefs;
+}
+function autoSave() {
+  localStorage.setItem(LS_KEY, JSON.stringify({
+    device: state.device, keys: state.keys,
+    wheelProfiles: state.wheelProfiles, activeWheelProfile: state.activeWheelProfile,
+    exportFormat: state.exportFormat, savedAt: Date.now(),
+  }));
+}
+function loadAutoSave() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; }
+}
+
+// ── Anticipatory Engine ──────────────────────────────────────────────────────
+
+// Action → likely zone mapping
+const ACTION_ZONE_HINTS = {
+  'OBS WebSocket': 'av', 'vMix API': 'av',
+  'Shell Command': 'dev', 'Hotkey': 'dev',
+  'Open URL': 'notion', 'System': 'notion',
+  'AppleScript': 'util',
+};
+
+function getZoneSuggestion(actionType, currentZone) {
+  const hint = ACTION_ZONE_HINTS[actionType];
+  if (hint && hint !== currentZone) return hint;
+  return null;
+}
+
+function getRecentEmojis() {
+  const prefs = loadPrefs();
+  return (prefs.recentEmojis || []).slice(0, 12);
+}
+
+function trackEmoji(emoji) {
+  const prefs = loadPrefs();
+  let recent = prefs.recentEmojis || [];
+  recent = [emoji, ...recent.filter(e => e !== emoji)].slice(0, 16);
+  savePrefs({ recentEmojis: recent });
+}
+
+function getAdjacentIndices(idx) {
+  const d = DEVICES.find(d => d.id === state.device);
+  const row = Math.floor(idx / d.cols), col = idx % d.cols;
+  const adj = [];
+  if (col < d.cols - 1) adj.push(idx + 1);       // right
+  if (row < d.rows - 1) adj.push(idx + d.cols);   // below
+  if (col > 0) adj.push(idx - 1);                 // left
+  if (row > 0) adj.push(idx - d.cols);             // above
+  return adj;
+}
+
+function getSuggestedNextKey() {
+  if (state.selectedIdx === null) return null;
+  const adj = getAdjacentIndices(state.selectedIdx);
+  // Prefer empty adjacent keys, then right/below
+  const empty = adj.filter(i => !state.keys[i]?.label && !state.keys[i]?.icon);
+  return empty.length > 0 ? empty[0] : (adj[0] ?? null);
+}
+
+function getEmptyKeyCount() {
+  return state.keys.filter(k => !k.label && !k.icon).length;
+}
+
+function getZoneStats() {
+  const counts = {};
+  for (const k of state.keys) {
+    if (k.label || k.icon) counts[k.zone] = (counts[k.zone] || 0) + 1;
+  }
+  return counts;
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 let state = {
@@ -230,6 +354,7 @@ let state = {
   wheelProfiles: JSON.parse(JSON.stringify(SEED_WHEEL)),
   activeWheelProfile: 'dev',
   exportFormat: 'deckforge',
+  showRestore: false,
 };
 
 function initKeys() {
@@ -259,6 +384,7 @@ function render() {
   renderDialRow();
   renderPanel();
   renderWheel();
+  autoSave();
 }
 
 function renderDeviceTabs() {
@@ -272,14 +398,18 @@ function renderGrid() {
   const d = DEVICES.find(d => d.id === state.device);
   const grid = document.getElementById('grid');
   grid.style.gridTemplateColumns = `repeat(${d.cols}, 80px)`;
+  const nextKey = getSuggestedNextKey();
+  const selZone = state.selectedIdx !== null ? state.keys[state.selectedIdx]?.zone : null;
   grid.innerHTML = state.keys.map((k, i) => {
     const zone = ZONES.find(z => z.id === k.zone);
     const zColor = zone ? zone.color : '#6b7280';
     const row = Math.floor(i / d.cols);
     const col = i % d.cols;
-    return `<div class="key ${i === state.selectedIdx ? 'selected' : ''} ${k.active ? 'active' : ''}"
+    const isSuggested = i === nextKey && state.selectedIdx !== null;
+    const zoneDim = selZone && k.zone !== selZone && i !== state.selectedIdx && state.selectedIdx !== null;
+    return `<div class="key ${i === state.selectedIdx ? 'selected' : ''} ${k.active ? 'active' : ''} ${isSuggested ? 'suggested' : ''} ${zoneDim ? 'zone-dim' : ''}"
       style="background:linear-gradient(145deg, ${zColor}18, ${zColor}08); border-color:${i === state.selectedIdx ? '#a78bfa' : zColor + '40'};"
-      onclick="selectKey(${i})">
+      onclick="selectKey(${i})" title="${escAttr(k.desc || k.label || 'Empty')}">
       <span class="key-icon">${escHtml(k.icon)}</span>
       <span class="key-label">${escHtml(k.label)}</span>
       <span class="key-pos">${row},${col}</span>
@@ -299,9 +429,20 @@ function renderDialRow() {
 
 function renderPanel() {
   const panel = document.getElementById('panel');
+  const empty = getEmptyKeyCount();
+  const zoneStats = getZoneStats();
+
   if (state.selectedIdx === null) {
+    const topZone = Object.entries(zoneStats).sort((a,b) => b[1]-a[1])[0];
     panel.innerHTML = `<div class="panel-section"><div class="panel-title">Key Editor</div>
-      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p></div>
+      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p>
+      ${empty > 0 ? `<p style="font-size:11px;color:var(--sun);margin-top:6px;">${empty} empty key${empty > 1 ? 's' : ''} — click one to configure</p>` : ''}
+      ${topZone ? `<p style="font-size:10px;color:var(--text2);margin-top:4px;">Most used zone: ${ZONES.find(z=>z.id===topZone[0])?.label || topZone[0]} (${topZone[1]} keys)</p>` : ''}
+      <div class="autosave-badge" style="margin-top:8px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);"></span>
+        Auto-saved locally
+      </div>
+      </div>
       ${renderExportSection()}`;
     return;
   }
@@ -309,10 +450,17 @@ function renderPanel() {
   const d = DEVICES.find(d => d.id === state.device);
   const row = Math.floor(state.selectedIdx / d.cols);
   const col = state.selectedIdx % d.cols;
+  const recent = getRecentEmojis();
+  const zoneSuggestion = getZoneSuggestion(k.action, k.zone);
+  const suggestedZone = zoneSuggestion ? ZONES.find(z => z.id === zoneSuggestion) : null;
+  const nextIdx = getSuggestedNextKey();
 
   panel.innerHTML = `
     <div class="panel-section">
-      <div class="panel-title">Key ${row},${col}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="panel-title">Key ${row},${col}</div>
+        <div class="autosave-badge"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);"></span> Saved</div>
+      </div>
       <div class="icon-row">
         <div class="icon-preview" style="background:${(ZONES.find(z=>z.id===k.zone)||{}).color || '#6b7280'}22;">${escHtml(k.icon)}</div>
         <div class="field" style="flex:1;">
@@ -320,7 +468,11 @@ function renderPanel() {
           <input type="text" value="${escAttr(k.icon)}" oninput="updateKey('icon', this.value)" maxlength="4" style="font-size:20px;text-align:center;">
         </div>
       </div>
-      <div class="emoji-grid">${EMOJIS.map(e => `<button class="emoji-btn" onclick="updateKey('icon','${e}')">${e}</button>`).join('')}</div>
+      ${recent.length > 0 ? `<div class="recent-emojis">
+        <span class="recent-label">Recent</span>
+        ${recent.map(e => `<button class="emoji-btn" onclick="pickEmoji('${e}')" style="font-size:16px;padding:2px;">${e}</button>`).join('')}
+      </div>` : ''}
+      <div class="emoji-grid">${EMOJIS.map(e => `<button class="emoji-btn" onclick="pickEmoji('${e}')">${e}</button>`).join('')}</div>
     </div>
     <div class="panel-section">
       <div class="field">
@@ -335,6 +487,9 @@ function renderPanel() {
           style="background:${z.color}22;color:${z.color};"
           onclick="updateKey('zone','${z.id}')">${z.label}</div>`).join('')}
       </div>
+      ${suggestedZone ? `<div class="zone-suggest" style="color:${suggestedZone.color};border-color:${suggestedZone.color}40;background:${suggestedZone.color}10;" onclick="updateKey('zone','${suggestedZone.id}')">
+        Suggested: ${suggestedZone.label} (matches ${k.action})
+      </div>` : ''}
     </div>
     <div class="panel-section">
       <div class="toggle-row">
@@ -360,6 +515,19 @@ function renderPanel() {
         <textarea oninput="updateKey('desc', this.value)" placeholder="What does this key do?">${escHtml(k.desc)}</textarea>
       </div>
     </div>
+    <div class="panel-section">
+      <div class="panel-title">Quick Actions</div>
+      <div class="quick-actions">
+        <button class="quick-act" onclick="duplicateKey()">Duplicate →</button>
+        <button class="quick-act" onclick="clearKey()">Clear Key</button>
+        <button class="quick-act" onclick="copyKeyToClipboard()">Copy JSON</button>
+        ${k.zone ? `<button class="quick-act" onclick="selectAllZone('${k.zone}')">Select Zone</button>` : ''}
+      </div>
+    </div>
+    ${nextIdx !== null ? `<div class="next-key-bar">
+      <span>Next: ${state.keys[nextIdx]?.label || 'Empty key'}</span>
+      <button onclick="selectKey(${nextIdx})">Edit →</button>
+    </div>` : ''}
     ${renderExportSection()}
   `;
 }
@@ -369,7 +537,7 @@ function renderExportSection() {
     <div class="panel-title" style="margin-bottom:8px;">Export / Import</div>
     <div class="export-format">
       ${['deckforge','streamdeck','csv'].map(f =>
-        `<button class="format-tab ${state.exportFormat === f ? 'active' : ''}" onclick="state.exportFormat='${f}';renderPanel();">${f === 'deckforge' ? 'DeckForge JSON' : f === 'streamdeck' ? 'Stream Deck' : 'CSV'}</button>`
+        `<button class="format-tab ${state.exportFormat === f ? 'active' : ''}" onclick="state.exportFormat='${f}';savePrefs({lastExportFormat:'${f}'});renderPanel();">${f === 'deckforge' ? 'DeckForge JSON' : f === 'streamdeck' ? 'Stream Deck' : 'CSV'}</button>`
       ).join('')}
     </div>
     <div class="btn-row">
@@ -401,6 +569,7 @@ function renderWheel() {
 
 function switchDevice(id) {
   state.device = id;
+  savePrefs({ lastDevice: id });
   initKeys();
   render();
 }
@@ -414,6 +583,58 @@ function updateKey(prop, val) {
   if (state.selectedIdx === null) return;
   state.keys[state.selectedIdx][prop] = val;
   render();
+}
+
+function pickEmoji(emoji) {
+  trackEmoji(emoji);
+  updateKey('icon', emoji);
+}
+
+function duplicateKey() {
+  if (state.selectedIdx === null) return;
+  const src = state.keys[state.selectedIdx];
+  const nextIdx = getSuggestedNextKey();
+  if (nextIdx === null) { toast('No adjacent key'); return; }
+  state.keys[nextIdx] = { ...src };
+  state.selectedIdx = nextIdx;
+  render();
+  toast('Duplicated to adjacent key');
+}
+
+function clearKey() {
+  if (state.selectedIdx === null) return;
+  state.keys[state.selectedIdx] = { icon:'', label:'', zone:'util', action:'None', value:'', active:false, desc:'' };
+  render();
+  toast('Key cleared');
+}
+
+function copyKeyToClipboard() {
+  if (state.selectedIdx === null) return;
+  const k = state.keys[state.selectedIdx];
+  navigator.clipboard.writeText(JSON.stringify(k, null, 2)).then(() => toast('Key JSON copied'));
+}
+
+function selectAllZone(zoneId) {
+  // Highlight all keys in this zone by toggling a filter view
+  toast(`${ZONES.find(z=>z.id===zoneId)?.label || zoneId}: ${state.keys.filter(k=>k.zone===zoneId).length} keys`);
+}
+
+function restoreSession() {
+  const saved = loadAutoSave();
+  if (!saved) return;
+  state.device = saved.device || 'xl';
+  state.keys = saved.keys || [];
+  state.wheelProfiles = saved.wheelProfiles || JSON.parse(JSON.stringify(SEED_WHEEL));
+  state.activeWheelProfile = saved.activeWheelProfile || 'dev';
+  state.exportFormat = saved.exportFormat || 'deckforge';
+  state.selectedIdx = null;
+  render();
+  toast('Previous session restored');
+}
+
+function dismissRestore() {
+  state.showRestore = false;
+  document.getElementById('restoreBanner')?.remove();
 }
 
 function updateWheel(idx, prop, val) {
@@ -565,8 +786,22 @@ function toast(msg) {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-initKeys();
-render();
+{
+  const saved = loadAutoSave();
+  const prefs = loadPrefs();
+  if (saved && saved.keys && saved.keys.length > 0) {
+    state.device = saved.device || 'xl';
+    state.keys = saved.keys;
+    state.wheelProfiles = saved.wheelProfiles || JSON.parse(JSON.stringify(SEED_WHEEL));
+    state.activeWheelProfile = saved.activeWheelProfile || 'dev';
+    state.exportFormat = saved.exportFormat || 'deckforge';
+  } else {
+    state.device = prefs.lastDevice || 'xl';
+    initKeys();
+  }
+  if (prefs.lastExportFormat) state.exportFormat = prefs.lastExportFormat;
+  render();
+}
 </script>
 </body>
 </html>
