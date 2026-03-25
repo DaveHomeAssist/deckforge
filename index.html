@@ -1007,6 +1007,7 @@ header {
   </div>
   <div class="header-sep"></div>
   <div style="font-size:9px;color:var(--muted)" id="selectionInfo">click a key to edit</div>
+  <div id="dirtyDot" title="All changes saved" style="width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0;transition:opacity 0.2s"></div>
   <div class="header-actions">
     <button class="btn" onclick="clearSelected()">clear key</button>
     <button class="btn" onclick="clearAll()">clear all</button>
@@ -1228,41 +1229,77 @@ let selectedKey = null;
 let selectedZone = 'green';
 
 // ── DATA ──────────────────────────────────────────────────────────
+// Canonical model: keys and wheelProfiles live INSIDE each profile.
+// state.keys is a *computed alias* for the active profile's keys.
 let state = {
-  profileName: 'DaveDeck v1',
+  version: 2,
   device: 'xl',
+  activeProfileId: 'prof_default',
   profiles: [
-    { id: 'main', name: 'Main', active: true }
+    {
+      id: 'prof_default',
+      name: 'DaveDeck v1',
+      device: 'xl',
+      keys: {},
+      wheelProfiles: [
+        {
+          id: 'dev', name: 'Dev', bindings: [
+            { app: 'VS Code / Cursor', up: 'Font size +', down: 'Font size –', click: 'Toggle terminal' },
+            { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'DevTools' },
+            { app: 'Notion', up: 'Next DB entry', down: 'Prev DB entry', click: 'Open page' },
+            { app: 'System', up: 'Clipboard prev', down: 'Clipboard next', click: 'Paste' },
+          ]
+        },
+        {
+          id: 'prod', name: 'Production', bindings: [
+            { app: 'OBS Studio', up: 'Next scene', down: 'Prev scene', click: 'Toggle record' },
+            { app: 'vMix', up: 'T-bar +5%', down: 'T-bar –5%', click: 'Cut to program' },
+            { app: 'System', up: 'Master vol +', down: 'Master vol –', click: 'Mute toggle' },
+            { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'Refresh' },
+          ]
+        },
+        {
+          id: 'bambu', name: 'Bambu', bindings: [
+            { app: 'Bambu Studio', up: 'Layer +1', down: 'Layer –1', click: 'Toggle layer view' },
+            { app: 'Bambu Studio', up: 'Speed +10%', down: 'Speed –10%', click: 'Pause print' },
+            { app: 'System', up: 'Vol +', down: 'Vol –', click: 'Mute' },
+            { app: 'Browser', up: 'Tab right', down: 'Tab left', click: 'Close tab' },
+          ]
+        },
+      ],
+      activeWheelProfile: 'dev',
+      appTriggers: [],
+      snapshots: [],
+    }
   ],
-  keys: {},
-  wheelProfiles: [
-    {
-      id: 'dev', name: 'Dev', bindings: [
-        { app: 'VS Code / Cursor', up: 'Font size +', down: 'Font size –', click: 'Toggle terminal' },
-        { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'DevTools' },
-        { app: 'Notion', up: 'Next DB entry', down: 'Prev DB entry', click: 'Open page' },
-        { app: 'System', up: 'Clipboard prev', down: 'Clipboard next', click: 'Paste' },
-      ]
-    },
-    {
-      id: 'prod', name: 'Production', bindings: [
-        { app: 'OBS Studio', up: 'Next scene', down: 'Prev scene', click: 'Toggle record' },
-        { app: 'vMix', up: 'T-bar +5%', down: 'T-bar –5%', click: 'Cut to program' },
-        { app: 'System', up: 'Master vol +', down: 'Master vol –', click: 'Mute toggle' },
-        { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'Refresh' },
-      ]
-    },
-    {
-      id: 'bambu', name: 'Bambu', bindings: [
-        { app: 'Bambu Studio', up: 'Layer +1', down: 'Layer –1', click: 'Toggle layer view' },
-        { app: 'Bambu Studio', up: 'Speed +10%', down: 'Speed –10%', click: 'Pause print' },
-        { app: 'System', up: 'Vol +', down: 'Vol –', click: 'Mute' },
-        { app: 'Browser', up: 'Tab right', down: 'Tab left', click: 'Close tab' },
-      ]
-    },
-  ],
-  activeWheelProfile: 'dev',
+  ui: {
+    selectedKey: null,
+    activeTab: 'edit',
+    diffBaseSnapshotId: null,
+  },
+  library: {
+    templates: [
+      { icon: '⚡', label: 'Hotkey', action: 'hotkey' },
+      { icon: '🌐', label: 'URL', action: 'url' },
+      { icon: '💻', label: 'Shell', action: 'shell' },
+      { icon: '🔴', label: 'Record', action: 'hotkey' },
+      { icon: '🎬', label: 'Scene', action: 'obs' },
+      { icon: '🔒', label: 'System', action: 'system' },
+    ],
+    zones: null, // uses ZONES constant; extensible later
+  },
 };
+
+// ── ACTIVE PROFILE ACCESSORS ─────────────────────────────────────
+// All reads/writes go through these. No code should touch state.profiles[n].keys directly.
+function activeProfile() {
+  return state.profiles.find(p => p.id === state.activeProfileId) || state.profiles[0];
+}
+function getKeys() { return activeProfile().keys; }
+function setKeys(keys) { activeProfile().keys = keys; }
+function getWheelProfiles() { return activeProfile().wheelProfiles || []; }
+function getActiveWheelId() { return activeProfile().activeWheelProfile || getWheelProfiles()[0]?.id || ''; }
+function setActiveWheelId(id) { activeProfile().activeWheelProfile = id; }
 
 // Seed default keys for XL
 const DEFAULT_KEYS_XL = [
@@ -1300,19 +1337,55 @@ const DEFAULT_KEYS_XL = [
   { i:31, icon:'🌀', label:'Restart\nDock',zone:'dim',    active:false, action:{type:'shell',value:'killall Dock'}, desc:'Restart macOS Dock' },
 ];
 
-DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
+DEFAULT_KEYS_XL.forEach(k => { state.profiles[0].keys[k.i] = k; });
 
 // ── PERSISTENCE ──────────────────────────────────────────────────
 const LS_KEY = 'deckforge-state';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 function saveState() {
   try {
     const data = { v: SCHEMA_VERSION, state, currentDevice, selectedZone };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
+    // Update dirty indicator
+    const dot = document.getElementById('dirtyDot');
+    if (dot) { dot.style.opacity = '0'; dot.title = 'All changes saved'; }
   } catch (e) {
     console.warn('DeckForge: save failed', e);
   }
+}
+
+function markDirty() {
+  const dot = document.getElementById('dirtyDot');
+  if (dot) { dot.style.opacity = '1'; dot.title = 'Unsaved changes'; }
+}
+
+function migrateV1toV2(data) {
+  // V1 had state.keys, state.wheelProfiles, state.activeWheelProfile at top level
+  // V2 nests them inside each profile
+  const old = data.state;
+  const profileName = old.profileName || 'Migrated Profile';
+  const profiles = (old.profiles || []).map((p, i) => ({
+    id: p.id || 'prof_' + i,
+    name: p.name || profileName,
+    device: data.currentDevice || old.device || 'xl',
+    keys: p.keys || (p.active ? { ...old.keys } : {}),
+    wheelProfiles: old.wheelProfiles || [],
+    activeWheelProfile: old.activeWheelProfile || '',
+    appTriggers: [],
+    snapshots: [],
+  }));
+  const activeId = profiles.find(p => p.active)?.id || profiles[0]?.id || 'prof_default';
+  // Remove old v1 'active' flag — v2 uses state.activeProfileId
+  profiles.forEach(p => delete p.active);
+  return {
+    version: 2,
+    device: data.currentDevice || old.device || 'xl',
+    activeProfileId: activeId,
+    profiles,
+    ui: { selectedKey: null, activeTab: 'edit', diffBaseSnapshotId: null },
+    library: { templates: state.library.templates, zones: null },
+  };
 }
 
 function restoreState() {
@@ -1320,14 +1393,35 @@ function restoreState() {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data || data.v !== SCHEMA_VERSION) return false;
+    if (!data) return false;
+
+    // Migrate from v1
+    if (data.v === 1) {
+      state = migrateV1toV2(data);
+      if (data.currentDevice) currentDevice = data.currentDevice;
+      if (data.selectedZone) selectedZone = data.selectedZone;
+      saveState(); // persist migration
+      return true;
+    }
+
+    if (data.v !== SCHEMA_VERSION) return false;
     if (data.state) {
       state = data.state;
-      // Ensure required fields exist
-      if (!state.profiles) state.profiles = [{ id: 'main', name: 'Main', active: true }];
-      if (!state.keys) state.keys = {};
-      if (!state.wheelProfiles) state.wheelProfiles = [];
-      if (!state.activeWheelProfile) state.activeWheelProfile = state.wheelProfiles[0]?.id || '';
+      // Ensure required fields
+      if (!state.profiles || !state.profiles.length) {
+        state.profiles = [{ id: 'prof_default', name: 'Default', device: 'xl', keys: {}, wheelProfiles: [], activeWheelProfile: '', appTriggers: [], snapshots: [] }];
+      }
+      if (!state.activeProfileId) state.activeProfileId = state.profiles[0].id;
+      // Ensure every profile has required fields
+      state.profiles.forEach(p => {
+        if (!p.keys) p.keys = {};
+        if (!p.wheelProfiles) p.wheelProfiles = [];
+        if (!p.activeWheelProfile) p.activeWheelProfile = p.wheelProfiles[0]?.id || '';
+        if (!p.appTriggers) p.appTriggers = [];
+        if (!p.snapshots) p.snapshots = [];
+      });
+      if (!state.ui) state.ui = { selectedKey: null, activeTab: 'edit', diffBaseSnapshotId: null };
+      if (!state.library) state.library = { templates: [], zones: null };
     }
     if (data.currentDevice) currentDevice = data.currentDevice;
     if (data.selectedZone) selectedZone = data.selectedZone;
@@ -1355,7 +1449,7 @@ function init() {
   renderPanelTabs();
   renderExport();
   updateWheelSelect();
-  renderWheelBindings(state.activeWheelProfile);
+  renderWheelBindings(getActiveWheelId());
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────────
@@ -1363,10 +1457,10 @@ function renderSidebar() {
   // Profiles
   const pl = document.getElementById('profileList');
   pl.innerHTML = state.profiles.map(p => `
-    <div class="profile-item ${p.active ? 'active' : ''}" onclick="activateProfile('${p.id}')">
-      <div class="profile-dot ${p.active ? '' : 'inactive'}"></div>
+    <div class="profile-item ${p.id === state.activeProfileId ? 'active' : ''}" onclick="activateProfile('${p.id}')">
+      <div class="profile-dot ${p.id === state.activeProfileId ? '' : 'inactive'}"></div>
       <div class="profile-name">${p.name}</div>
-      <div class="profile-app-count">${Object.keys(p.keys || state.keys).length}k</div>
+      <div class="profile-app-count">${Object.keys(p.keys || {}).length}k</div>
       ${state.profiles.length > 1 ? `<span style="font-size:10px;color:var(--muted);cursor:pointer;margin-left:4px" onclick="event.stopPropagation();deleteProfile('${p.id}')">×</span>` : ''}
     </div>
   `).join('');
@@ -1377,20 +1471,13 @@ function renderSidebar() {
     <div class="zone-item ${selectedZone === z.id ? 'selected' : ''}" onclick="selectZone('${z.id}')">
       <div class="zone-swatch" style="background:${z.color}"></div>
       <div class="zone-name">${z.label}</div>
-      <div class="zone-count">${Object.values(state.keys).filter(k=>k.zone===z.id).length}</div>
+      <div class="zone-count">${Object.values(getKeys()).filter(k=>k.zone===z.id).length}</div>
     </div>
   `).join('');
 
   // Quick templates
   const tg = document.getElementById('templateGrid');
-  const templates = [
-    { icon:'⚡', label:'Hotkey', action:'hotkey' },
-    { icon:'🌐', label:'URL', action:'url' },
-    { icon:'💻', label:'Shell', action:'shell' },
-    { icon:'🔴', label:'Record', action:'hotkey' },
-    { icon:'🎬', label:'Scene', action:'obs' },
-    { icon:'🔒', label:'System', action:'system' },
-  ];
+  const templates = state.library.templates;
   tg.innerHTML = templates.map(t => `
     <div class="tpl-key" title="Click to apply to selected key" onclick="applyTemplate('${t.action}', '${t.icon}')">
       <div class="tpl-icon">${t.icon}</div>
@@ -1400,9 +1487,10 @@ function renderSidebar() {
 
   // Wheel sidebar
   const ws = document.getElementById('wheelSidebar');
-  ws.innerHTML = state.wheelProfiles.map(p => `
-    <div class="profile-item ${p.id === state.activeWheelProfile ? 'active' : ''}" onclick="setActiveWheelProfile('${p.id}')">
-      <div class="profile-dot ${p.id === state.activeWheelProfile ? '' : 'inactive'}"></div>
+  const awId = getActiveWheelId();
+  ws.innerHTML = getWheelProfiles().map(p => `
+    <div class="profile-item ${p.id === awId ? 'active' : ''}" onclick="setActiveWheelProfile('${p.id}')">
+      <div class="profile-dot ${p.id === awId ? '' : 'inactive'}"></div>
       <div class="profile-name">${p.name}</div>
     </div>
   `).join('');
@@ -1418,9 +1506,10 @@ function renderGrid() {
   document.getElementById('deckLabel').textContent = dev.name;
   document.getElementById('gridInfo').textContent = `${dev.cols} cols × ${dev.rows} rows`;
 
+  const keys = getKeys();
   grid.innerHTML = '';
   for (let i = 0; i < count; i++) {
-    const k = state.keys[i];
+    const k = keys[i];
     const el = document.createElement('div');
     el.className = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
     el.dataset.index = i;
@@ -1436,7 +1525,7 @@ function renderGrid() {
 
   // Legend
   const legend = document.getElementById('legendBar');
-  const usedZones = [...new Set(Object.values(state.keys).map(k => k.zone))];
+  const usedZones = [...new Set(Object.values(keys).map(k => k.zone))];
   legend.innerHTML = usedZones.map(zid => {
     const z = ZONES.find(z => z.id === zid);
     if (!z) return '';
@@ -1478,7 +1567,7 @@ function showKeyEditor(index) {
   document.getElementById('keyEditor').style.display = 'block';
   document.getElementById('keyIndexLabel').textContent = index;
 
-  const k = state.keys[index] || {};
+  const k = getKeys()[index] || {};
   document.getElementById('fIcon').value = k.icon || '';
   document.getElementById('fLabel').value = (k.label || '').replace(/\n/g, '\\n');
   document.getElementById('fActive').checked = !!k.active;
@@ -1511,15 +1600,17 @@ function setEmoji(e) {
 
 function setKeyZone(zid) {
   if (selectedKey === null) return;
-  if (!state.keys[selectedKey]) state.keys[selectedKey] = { i: selectedKey };
-  state.keys[selectedKey].zone = zid;
+  const keys = getKeys();
+  if (!keys[selectedKey]) keys[selectedKey] = { i: selectedKey };
+  keys[selectedKey].zone = zid;
   updateKey();
   showKeyEditor(selectedKey);
 }
 
 function updateKey() {
   if (selectedKey === null) return;
-  const k = state.keys[selectedKey] || { i: selectedKey };
+  const keys = getKeys();
+  const k = keys[selectedKey] || { i: selectedKey };
   k.icon   = document.getElementById('fIcon').value;
   k.label  = document.getElementById('fLabel').value.replace(/\\n/g, '\n');
   k.active = document.getElementById('fActive').checked;
@@ -1529,7 +1620,7 @@ function updateKey() {
   };
   k.desc = document.getElementById('fDescription').value;
   if (!k.zone) k.zone = 'dim';
-  state.keys[selectedKey] = k;
+  keys[selectedKey] = k;
   renderGrid();
   selectKey(selectedKey);
   renderSidebar();
@@ -1539,8 +1630,9 @@ function updateKey() {
 
 function applyTemplate(actionType, icon) {
   if (selectedKey === null) { toast('Select a key first', 'error'); return; }
-  if (!state.keys[selectedKey]) state.keys[selectedKey] = { i: selectedKey };
-  const k = state.keys[selectedKey];
+  const keys = getKeys();
+  if (!keys[selectedKey]) keys[selectedKey] = { i: selectedKey };
+  const k = keys[selectedKey];
   k.icon = icon;
   k.action = { type: actionType, value: '' };
   if (!k.zone || k.zone === 'dim') k.zone = selectedZone;
@@ -1554,7 +1646,7 @@ function applyTemplate(actionType, icon) {
 
 function clearSelected() {
   if (selectedKey === null) return;
-  delete state.keys[selectedKey];
+  delete getKeys()[selectedKey];
   renderGrid();
   document.getElementById('noKeyMsg').style.display = 'block';
   document.getElementById('keyEditor').style.display = 'none';
@@ -1567,7 +1659,7 @@ function clearSelected() {
 
 function clearAll() {
   if (!confirm('Clear all keys?')) return;
-  state.keys = {};
+  activeProfile().keys = {};
   renderGrid();
   renderSidebar();
   renderExport();
@@ -1585,18 +1677,19 @@ function selectZone(zid) {
 // ── WHEEL ──────────────────────────────────────────────────────────
 function updateWheelSelect() {
   const sel = document.getElementById('wheelProfileSelect');
-  sel.innerHTML = state.wheelProfiles.map(p =>
-    `<option value="${p.id}" ${p.id === state.activeWheelProfile ? 'selected' : ''}>${p.name}</option>`
+  const awId = getActiveWheelId();
+  sel.innerHTML = getWheelProfiles().map(p =>
+    `<option value="${p.id}" ${p.id === awId ? 'selected' : ''}>${p.name}</option>`
   ).join('');
 }
 
 function loadWheelProfile(id) {
-  state.activeWheelProfile = id;
+  setActiveWheelId(id);
   renderWheelBindings(id);
 }
 
 function renderWheelBindings(profileId) {
-  const profile = state.wheelProfiles.find(p => p.id === profileId);
+  const profile = getWheelProfiles().find(p => p.id === profileId);
   if (!profile) return;
   const container = document.getElementById('wheelBindings');
   container.innerHTML = profile.bindings.map((b, i) => `
@@ -1623,7 +1716,7 @@ function renderWheelBindings(profileId) {
 }
 
 function updateWheelBinding(idx, field, val) {
-  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
+  const profile = getWheelProfiles().find(p => p.id === getActiveWheelId());
   if (profile && profile.bindings[idx]) {
     profile.bindings[idx][field] = val;
     renderExport();
@@ -1632,7 +1725,7 @@ function updateWheelBinding(idx, field, val) {
 }
 
 function addWheelBinding(profileId) {
-  const profile = state.wheelProfiles.find(p => p.id === profileId);
+  const profile = getWheelProfiles().find(p => p.id === profileId);
   if (profile) {
     profile.bindings.push({ app: 'New App', up: '', down: '', click: '' });
     renderWheelBindings(profileId);
@@ -1648,7 +1741,7 @@ function saveWheelProfile() {
 }
 
 function setActiveWheelProfile(id) {
-  state.activeWheelProfile = id;
+  setActiveWheelId(id);
   updateWheelSelect();
   renderWheelBindings(id);
   renderSidebar();
@@ -1658,7 +1751,7 @@ function addWheelProfile() {
   const name = prompt('Wheel profile name:', 'New Profile');
   if (!name) return;
   const id = name.toLowerCase().replace(/\s+/g, '_');
-  state.wheelProfiles.push({ id, name, bindings: [
+  getWheelProfiles().push({ id, name, bindings: [
     { app: 'Default', up: '', down: '', click: '' }
   ]});
   updateWheelSelect();
@@ -1671,24 +1764,24 @@ function addWheelProfile() {
 function addProfile() {
   const name = prompt('Profile name:', 'New Profile');
   if (!name) return;
-  const id = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
-
-  // Save current keys to active profile first
-  const current = state.profiles.find(p => p.active);
-  if (current) current.keys = { ...state.keys };
-
-  // Ask if they want to duplicate current layout
+  const id = 'prof_' + Date.now();
   const dupe = confirm('Copy current layout to new profile?');
+  const src = activeProfile();
 
   state.profiles.push({
     id,
     name,
-    active: false,
-    keys: dupe ? { ...state.keys } : {}
+    device: currentDevice,
+    keys: dupe ? JSON.parse(JSON.stringify(src.keys)) : {},
+    wheelProfiles: dupe ? JSON.parse(JSON.stringify(src.wheelProfiles)) : [],
+    activeWheelProfile: dupe ? src.activeWheelProfile : '',
+    appTriggers: [],
+    snapshots: [],
   });
 
   renderSidebar();
   saveState();
+  toast(`Profile "${name}" created`);
 }
 
 function deleteProfile(id) {
@@ -1697,31 +1790,12 @@ function deleteProfile(id) {
   if (!target) return;
   if (!confirm(`Delete profile "${target.name}"?`)) return;
 
-  const wasActive = target.active;
+  const wasActive = (id === state.activeProfileId);
   state.profiles = state.profiles.filter(p => p.id !== id);
 
   if (wasActive) {
-    state.profiles[0].active = true;
-    state.keys = state.profiles[0].keys ? { ...state.profiles[0].keys } : {};
+    state.activeProfileId = state.profiles[0].id;
   }
-
-  renderGrid();
-  renderSidebar();
-  renderExport();
-  saveState();
-}
-
-function activateProfile(id) {
-  // Save current keys to the active profile before switching
-  const current = state.profiles.find(p => p.active);
-  if (current) current.keys = { ...state.keys };
-
-  // Switch active flag
-  state.profiles.forEach(p => p.active = (p.id === id));
-
-  // Load the new profile's keys
-  const target = state.profiles.find(p => p.id === id);
-  state.keys = target?.keys ? { ...target.keys } : {};
 
   selectedKey = null;
   document.getElementById('noKeyMsg').style.display = 'block';
@@ -1730,7 +1804,26 @@ function activateProfile(id) {
   renderGrid();
   renderSidebar();
   renderExport();
+  updateWheelSelect();
+  renderWheelBindings(getActiveWheelId());
   saveState();
+}
+
+function activateProfile(id) {
+  if (id === state.activeProfileId) return; // already active
+  state.activeProfileId = id;
+
+  selectedKey = null;
+  document.getElementById('noKeyMsg').style.display = 'block';
+  document.getElementById('keyEditor').style.display = 'none';
+
+  renderGrid();
+  renderSidebar();
+  renderExport();
+  updateWheelSelect();
+  renderWheelBindings(getActiveWheelId());
+  saveState();
+  toast(`Switched to "${activeProfile().name}"`);
 }
 
 // ── DEVICE ────────────────────────────────────────────────────────
@@ -1766,31 +1859,34 @@ function renderPanelTabs() {
 // ── EXPORT ────────────────────────────────────────────────────────
 function buildJSON() {
   const dev = DEVICES[currentDevice];
-  const profileName = document.getElementById('exportProfileName')?.value || state.profileName;
+  const prof = activeProfile();
+  const profileName = document.getElementById('exportProfileName')?.value || prof.name;
+  const keys = getKeys();
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
 
   if (fmt === 'csv') {
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
     for (let i = 0; i < dev.cols * dev.rows; i++) {
-      const k = state.keys[i];
+      const k = keys[i];
       if (k) rows.push(`${i},"${k.icon}","${(k.label||'').replace(/\n/g,' ')}","${k.zone}",${k.active},"${k.action?.type}","${k.action?.value}","${k.desc||''}"`);
     }
     return rows.join('\n');
   }
 
   const out = {
-    version: '1.0',
+    version: '2.0',
     generator: 'DeckForge',
     profile: profileName,
+    profileId: prof.id,
     device: { id: currentDevice, name: dev.name, cols: dev.cols, rows: dev.rows },
     keys: {},
-    wheelProfiles: state.wheelProfiles,
-    activeWheelProfile: state.activeWheelProfile,
+    wheelProfiles: getWheelProfiles(),
+    activeWheelProfile: getActiveWheelId(),
     exportedAt: new Date().toISOString(),
   };
 
   for (let i = 0; i < dev.cols * dev.rows; i++) {
-    const k = state.keys[i];
+    const k = keys[i];
     if (k) {
       out.keys[i] = {
         index: i,
@@ -1882,25 +1978,26 @@ function handleImport(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
+      const prof = activeProfile();
       if (data.keys) {
-        state.keys = {};
+        prof.keys = {};
         Object.entries(data.keys).forEach(([idx, k]) => {
-          if (k) state.keys[parseInt(idx)] = k;
+          if (k) prof.keys[parseInt(idx)] = k;
         });
       }
       if (data.device?.id) {
         currentDevice = data.device.id;
         document.getElementById('deviceSelect').value = currentDevice;
       }
-      if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
-      if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
+      if (data.wheelProfiles) prof.wheelProfiles = data.wheelProfiles;
+      if (data.activeWheelProfile) prof.activeWheelProfile = data.activeWheelProfile;
       renderGrid();
       renderSidebar();
       updateWheelSelect();
-      renderWheelBindings(state.activeWheelProfile);
+      renderWheelBindings(getActiveWheelId());
       renderExport();
       flashSuccess(document.querySelector('[data-tab="export"]'));
-      toast('Layout imported');
+      toast(`Layout imported into "${prof.name}"`);
     } catch {
       toast('Invalid JSON file', 'error');
     }
