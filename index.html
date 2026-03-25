@@ -41,6 +41,16 @@
   --radius: 10px;
   --key-size: 72px;
   --key-gap: 7px;
+  /* Interaction timing tokens */
+  --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-press: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-hover: 120ms;
+  --dur-press: 80ms;
+  --dur-settle: 140ms;
+  --dur-confirm: 160ms;
+  --coral-error: #f56b42;
+  --coral-error-bg: rgba(245,107,66,0.12);
 }
 
 html { height: 100%; }
@@ -96,15 +106,13 @@ header {
   background: none;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), background var(--dur-hover) var(--ease-hover), transform var(--dur-press) var(--ease-press);
   letter-spacing: 0.04em;
 }
 
-.model-tab.active, .model-tab:hover {
-  border-color: var(--green);
-  color: var(--green);
-  background: var(--green-bg);
-}
+.model-tab:hover { border-color: var(--green); color: var(--green); transform: translateY(-1px); }
+.model-tab:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.model-tab.active { border-color: var(--green); color: var(--green); background: var(--green-bg); }
 
 .header-actions {
   margin-left: auto;
@@ -122,12 +130,13 @@ header {
   background: none;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: transform var(--dur-hover) var(--ease-hover), border-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), background var(--dur-hover) var(--ease-hover);
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
-.btn:hover { border-color: var(--border2); color: var(--text); }
+.btn:hover { border-color: var(--border2); color: var(--text); transform: translateY(-1px); }
+.btn:active { transform: scale(0.97); background: var(--s3); border-color: var(--border2); transition-duration: var(--dur-press); }
 
 .btn-primary {
   background: var(--green);
@@ -136,11 +145,8 @@ header {
   font-weight: 500;
 }
 
-.btn-primary:hover {
-  background: #cefb6a;
-  border-color: #cefb6a;
-  color: #0a0a0a;
-}
+.btn-primary:hover { background: #cefb6a; border-color: #cefb6a; color: #0a0a0a; transform: translateY(-1px); }
+.btn-primary:active { background: #a8e032; border-color: #a8e032; transform: scale(0.97); transition-duration: var(--dur-press); }
 
 .btn-ghost {
   border: none;
@@ -189,8 +195,9 @@ header {
   user-select: none;
 }
 
-.zone-item:hover { background: var(--s2); border-color: var(--border); }
-.zone-item.selected { border-color: var(--green); background: var(--green-bg); }
+.zone-item:hover { background: var(--s2); border-color: var(--border); transform: translateX(2px); }
+.zone-item:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.zone-item.selected { border-color: var(--green); background: var(--green-bg); transform: none; }
 
 .zone-swatch {
   width: 12px;
@@ -236,7 +243,8 @@ header {
   line-height: 1.3;
 }
 
-.tpl-key:hover { border-color: var(--green); color: var(--green); transform: scale(0.96); }
+.tpl-key:hover { border-color: var(--green); color: var(--green); transform: translateY(-1px); }
+.tpl-key:active { transform: scale(0.98); transition-duration: var(--dur-press); }
 .tpl-key .tpl-icon { font-size: 16px; }
 
 /* Profile manager */
@@ -257,8 +265,9 @@ header {
   transition: all 0.12s;
 }
 
-.profile-item:hover { background: var(--s2); border-color: var(--border); }
-.profile-item.active { border-color: var(--green); background: var(--green-bg); }
+.profile-item:hover { background: var(--s2); border-color: var(--border); transform: translateX(2px); }
+.profile-item:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.profile-item.active { border-color: var(--green); background: var(--green-bg); transform: none; }
 
 .profile-dot {
   width: 7px;
@@ -278,76 +287,6 @@ header {
 .profile-app-count {
   font-size: 9px;
   color: var(--muted);
-}
-
-.app-trigger-list,
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.app-trigger-item,
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: var(--s2);
-}
-
-.app-trigger-item:hover,
-.history-item:hover {
-  border-color: var(--border2);
-}
-
-.app-trigger-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.app-trigger-body,
-.history-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.app-trigger-name,
-.history-name {
-  font-size: 10px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-trigger-meta,
-.history-meta {
-  margin-top: 2px;
-  font-size: 8px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-trigger-action,
-.history-action {
-  font-size: 8px;
-  color: var(--green);
-  border: 1px solid var(--green-border);
-  background: var(--green-bg);
-  border-radius: 999px;
-  padding: 2px 6px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.history-actions {
-  display: flex;
-  gap: 4px;
 }
 
 /* ── MAIN ── */
@@ -440,17 +379,20 @@ header {
   justify-content: center;
   gap: 3px;
   cursor: pointer;
-  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  transition: transform var(--dur-hover) var(--ease-hover), border-color var(--dur-hover) var(--ease-hover), box-shadow var(--dur-confirm) var(--ease-settle), background var(--dur-hover) var(--ease-hover);
   position: relative;
   padding: 5px 3px;
   user-select: none;
   overflow: hidden;
 }
 
-.key:hover { transform: scale(0.93); border-color: var(--border2); }
+.key:hover { transform: translateY(-1px); border-color: var(--border2); background: #1e1e1e; }
+.key:active { transform: scale(0.96); transition-duration: var(--dur-press); }
 .key.selected {
   border-color: var(--green) !important;
   box-shadow: 0 0 0 1px var(--green);
+  transform: none;
+  transition-duration: var(--dur-confirm);
 }
 
 .key.empty { opacity: 0.35; }
@@ -484,35 +426,6 @@ header {
   height: 4px;
   border-radius: 50%;
   background: var(--green);
-}
-
-.key-validation-dot {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.key-validation-dot.ok { background: var(--teal); }
-.key-validation-dot.warn { background: var(--amber); }
-.key-validation-dot.err { background: var(--coral); }
-
-.key.diff-added {
-  border-color: var(--teal) !important;
-  box-shadow: 0 0 0 1px var(--teal);
-}
-
-.key.diff-removed {
-  border-color: var(--coral) !important;
-  box-shadow: 0 0 0 1px var(--coral);
-  opacity: 0.55;
-}
-
-.key.diff-modified {
-  border-color: var(--amber) !important;
-  box-shadow: 0 0 0 1px var(--amber);
 }
 
 /* Zone colors */
@@ -554,91 +467,6 @@ header {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 12px;
-}
-
-.diff-bar {
-  width: 100%;
-  max-width: 720px;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #5a3808;
-  background: var(--amber-bg);
-  color: var(--amber);
-  font-size: 10px;
-}
-
-.diff-bar.show {
-  display: flex;
-}
-
-.diff-status {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.validation-summary {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-  font-size: 10px;
-}
-
-.validation-summary .ok { color: var(--teal); }
-.validation-summary .warn { color: var(--amber); }
-.validation-summary .err { color: var(--coral); }
-
-.validation-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.validation-item {
-  display: flex;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--s2);
-}
-
-.validation-item.ok {
-  border-color: var(--green-border);
-  background: var(--green-bg);
-}
-
-.validation-item.warn {
-  border-color: #5a3808;
-  background: var(--amber-bg);
-}
-
-.validation-item.err {
-  border-color: #5a2808;
-  background: var(--coral-bg);
-}
-
-.validation-icon {
-  font-size: 13px;
-  line-height: 1;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.validation-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.validation-key {
-  font-size: 8px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
 }
 
 /* Key editor form */
@@ -696,8 +524,9 @@ header {
   transition: all 0.1s;
 }
 
-.emoji-btn:hover { border-color: var(--green); transform: scale(0.9); }
-.emoji-btn.selected { border-color: var(--green); background: var(--green-bg); }
+.emoji-btn:hover { border-color: var(--green); transform: translateY(-1px); }
+.emoji-btn:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.emoji-btn.selected { border-color: var(--green); background: var(--green-bg); transform: none; }
 
 .zone-picker {
   display: grid;
@@ -717,7 +546,9 @@ header {
   color: var(--muted);
 }
 
-.zone-pill:hover, .zone-pill.selected { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.zone-pill:hover { border-color: var(--green); color: var(--green); transform: translateY(-1px); }
+.zone-pill:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.zone-pill.selected { border-color: var(--green); color: var(--green); background: var(--green-bg); transform: none; }
 
 /* Action editor */
 .action-row {
@@ -820,14 +651,13 @@ header {
   color: var(--muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: all 0.15s;
+  transition: color var(--dur-hover) var(--ease-hover), border-color var(--dur-confirm) var(--ease-settle), transform var(--dur-press) var(--ease-press);
   letter-spacing: 0.04em;
 }
 
-.panel-tab.active {
-  color: var(--green);
-  border-bottom-color: var(--green);
-}
+.panel-tab:hover { color: var(--text); transform: translateY(-1px); }
+.panel-tab:active { transform: scale(0.98); transition-duration: var(--dur-press); }
+.panel-tab.active { color: var(--green); border-bottom-color: var(--green); transform: none; }
 
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -837,7 +667,7 @@ header {
   position: fixed;
   bottom: 24px;
   left: 50%;
-  transform: translateX(-50%) translateY(20px);
+  transform: translateX(-50%) translateY(12px);
   background: var(--green);
   color: #0a0a0a;
   font-family: var(--font-mono);
@@ -846,7 +676,7 @@ header {
   padding: 10px 20px;
   border-radius: 20px;
   opacity: 0;
-  transition: all 0.3s;
+  transition: opacity 160ms var(--ease-settle), transform 160ms var(--ease-settle);
   z-index: 200;
   pointer-events: none;
 }
@@ -856,10 +686,57 @@ header {
   transform: translateX(-50%) translateY(0);
 }
 
-/* Drag highlight */
+.toast.error {
+  background: var(--coral);
+}
+
+/* Error + success feedback */
+@keyframes error-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.shake { animation: error-shake 140ms ease-in-out; }
+
+.input-error {
+  border-color: var(--coral-error) !important;
+  background: var(--coral-error-bg) !important;
+}
+
+.success-flash {
+  animation: success-ping 160ms var(--ease-settle);
+}
+
+@keyframes success-ping {
+  0% { box-shadow: 0 0 0 0 rgba(184,245,66,0.4); }
+  100% { box-shadow: 0 0 0 4px rgba(184,245,66,0); }
+}
+
+.key.validation-error .key-active-dot {
+  background: var(--coral-error);
+  animation: error-shake 140ms ease-in-out;
+}
+
+/* Drag states */
+.key.dragging {
+  transform: scale(0.98);
+  opacity: 0.75;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  transition-duration: var(--dur-press);
+}
+
 .key.drag-over {
   border-color: var(--green) !important;
   background: var(--green-bg) !important;
+  transform: scale(0.97);
+  box-shadow: inset 0 0 0 1px var(--green);
+  transition-duration: var(--dur-confirm);
+}
+
+.key.drag-drop {
+  transform: none;
+  transition: transform var(--dur-settle) var(--ease-settle);
 }
 
 /* ── SIDEBAR TOGGLE (hidden by default on desktop) ── */
@@ -945,6 +822,7 @@ header {
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
     padding-bottom: env(safe-area-inset-bottom);
+    transition: transform 200ms var(--ease-settle);
   }
 
   .panel-drag-handle {
@@ -1112,16 +990,6 @@ header {
     min-width: 44px;
   }
 }
-
-/* Context Pages */
-.page-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:10px; }
-.page-tab { padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s; }
-.page-tab.active { background:var(--accent,#7c6cf0); color:#fff; border-color:var(--accent,#7c6cf0); }
-.page-tab:hover:not(.active) { background:var(--s2,#1a1a22); color:var(--fg,#e8e9ed); }
-.page-tab.add-page { color:var(--accent,#7c6cf0); border-style:dashed; }
-/* Hotkey capture */
-#hotkeyRecordBtn { padding:5px 10px; border-radius:6px; border:1px solid var(--border); background:var(--s2,#1a1a22); color:var(--muted); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.15s; margin-top:4px; }
-#hotkeyRecordBtn:hover { border-color:var(--accent,#7c6cf0); color:var(--accent,#7c6cf0); }
 </style>
 </head>
 <body>
@@ -1140,13 +1008,9 @@ header {
   <div class="header-sep"></div>
   <div style="font-size:9px;color:var(--muted)" id="selectionInfo">click a key to edit</div>
   <div class="header-actions">
-    <button class="btn" onclick="validateAll()">validate</button>
-    <button class="btn" onclick="showDiff()">diff</button>
     <button class="btn" onclick="clearSelected()">clear key</button>
     <button class="btn" onclick="clearAll()">clear all</button>
     <button class="btn btn-primary" onclick="exportJSON()">export JSON</button>
-    <button class="btn" onclick="shareLayout()">share link</button>
-    <button class="btn btn-ghost" onclick="undoLayout()" title="Undo last change">↩ undo</button>
   </div>
 </header>
 
@@ -1160,12 +1024,6 @@ header {
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-title">App Triggers</div>
-    <div class="app-trigger-list" id="appTriggerList"></div>
-    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addAppTrigger()">+ app trigger</button>
-  </div>
-
-  <div class="sidebar-section">
     <div class="sidebar-title">Zone Colors</div>
     <div class="zone-list" id="zoneList"></div>
   </div>
@@ -1176,12 +1034,6 @@ header {
   </div>
 
   <div class="sidebar-section" style="flex:1">
-    <div class="sidebar-title">History</div>
-    <div class="history-list" id="historyList"></div>
-    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="saveNamedSnapshot()">+ snapshot</button>
-  </div>
-
-  <div class="sidebar-section">
     <div class="sidebar-title">Wheel Profiles</div>
     <div id="wheelSidebar"></div>
     <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addWheelProfile()">+ wheel profile</button>
@@ -1199,12 +1051,6 @@ header {
       <option value="plus">Stream Deck + — 4×2 (8 keys + dial)</option>
     </select>
     <div class="grid-info" id="gridInfo">8 cols × 4 rows</div>
-  </div>
-
-  <div class="diff-bar" id="diffBar">
-    <span>Diff mode</span>
-    <span class="diff-status" id="diffStatus">comparing current layout to latest snapshot</span>
-    <button class="btn" style="margin-left:auto;padding:4px 10px" onclick="exitDiff()">exit</button>
   </div>
 
   <div class="deck-wrap">
@@ -1235,7 +1081,6 @@ header {
   <div class="panel-tabs">
     <button class="panel-tab active" data-tab="edit">Edit Key</button>
     <button class="panel-tab" data-tab="wheel">Wheel</button>
-    <button class="panel-tab" data-tab="validate">Validate</button>
     <button class="panel-tab" data-tab="export">Export</button>
   </div>
 
@@ -1313,23 +1158,12 @@ header {
     </div>
   </div>
 
-  <!-- VALIDATE TAB -->
-  <div class="tab-content" id="tab-validate">
-    <div class="panel-section">
-      <div class="panel-title">Validation</div>
-      <button class="btn" style="width:100%;margin-bottom:10px" onclick="validateAll()">run validation</button>
-      <div class="validation-list" id="validationList">
-        <div style="font-size:10px;color:var(--muted);text-align:center;padding:18px 0">Run validation to inspect configured actions.</div>
-      </div>
-    </div>
-  </div>
-
   <!-- EXPORT TAB -->
   <div class="tab-content" id="tab-export">
     <div class="panel-section">
       <div class="panel-title">Profile Name</div>
       <div class="field">
-        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1" oninput="updateExportProfileName()">
+        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1">
       </div>
     </div>
     <div class="panel-section">
@@ -1343,7 +1177,6 @@ header {
     <div class="panel-section">
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="downloadJSON()">download .json</button>
       <button class="btn" style="width:100%" onclick="importJSON()">import .json</button>
-      <button class="btn" style="width:100%;margin-top:8px" onclick="resetDefaults()">reset to defaults</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
     </div>
     <div class="panel-section">
@@ -1354,12 +1187,6 @@ header {
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
           <input type="radio" name="exportFmt" value="streamdeck"> Stream Deck profile (.streamDeckProfile)
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
-          <input type="radio" name="exportFmt" value="km"> Keyboard Maestro (.kmmacros)
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
-          <input type="radio" name="exportFmt" value="ahk"> AutoHotKey (.ahk)
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
           <input type="radio" name="exportFmt" value="csv"> CSV (for docs/sharing)
@@ -1373,22 +1200,6 @@ header {
 <div class="toast" id="toast"></div>
 
 <script>
-// ── XSS UTILS ─────────────────────────────────────────────────────
-function escapeHtml(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
-function escapeXml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
 // ── STATE ──────────────────────────────────────────────────────────
 const DEVICES = {
   xl:   { cols: 8, rows: 4, name: 'Stream Deck XL',    hasDial: false },
@@ -1415,11 +1226,6 @@ const WHEEL_APPS = ['VS Code / Cursor','OBS Studio','vMix','Bambu Studio','Rekor
 let currentDevice = 'xl';
 let selectedKey = null;
 let selectedZone = 'green';
-let currentPage = 'main';
-let recordingHotkey = false;
-let diffMode = false;
-let diffBase = null;
-let validationResults = {};
 
 // ── DATA ──────────────────────────────────────────────────────────
 let state = {
@@ -1428,18 +1234,6 @@ let state = {
   profiles: [
     { id: 'main', name: 'Main', active: true }
   ],
-  appTriggers: [
-    { app: 'VS Code', bundle: 'com.microsoft.VSCode', icon: '💻', profileId: 'main' },
-    { app: 'OBS Studio', bundle: 'com.obsproject.obs-studio', icon: '🎬', profileId: 'main' },
-    { app: 'Notion', bundle: 'notion.id', icon: '📓', profileId: 'main' },
-  ],
-  pages: {
-    main: { name: 'Main', icon: '🏠' },
-    dev:  { name: 'Dev Session', icon: '⚗️' },
-    live: { name: 'Live Show', icon: '🎬' },
-    print:{ name: 'Print Monitor', icon: '🖨️' },
-  },
-  pageKeys: {},
   keys: {},
   wheelProfiles: [
     {
@@ -1508,213 +1302,12 @@ const DEFAULT_KEYS_XL = [
 
 DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
 
-// ── PERSISTENCE ──────────────────────────────────────────────────
-function saveState() {
-  try {
-    const exportName = document.getElementById('exportProfileName');
-    if (exportName && exportName.value.trim()) {
-      state.profileName = exportName.value.trim();
-    }
-    const s = JSON.stringify({
-      version: 2,
-      profileName: state.profileName,
-      device: currentDevice,
-      profiles: state.profiles,
-      appTriggers: state.appTriggers,
-      keys: state.keys,
-      wheelProfiles: state.wheelProfiles,
-      activeWheelProfile: state.activeWheelProfile,
-    });
-    localStorage.setItem('deckforge_state', s);
-    saveSnapshot();
-  } catch (e) { console.warn('DeckForge: save failed', e); }
-}
-
-function loadState() {
-  // Check URL hash first for shared layouts
-  if (location.hash.startsWith('#layout=')) {
-    try {
-      const compressed = location.hash.slice(8);
-      const json = decodeURIComponent(atob(compressed));
-      const data = JSON.parse(json);
-      applyImportedState(data);
-      history.replaceState(null, '', location.pathname); // clean URL after loading
-      toast('Shared layout loaded');
-      return;
-    } catch (e) { console.warn('DeckForge: URL layout invalid', e); }
-  }
-
-  try {
-    const raw = localStorage.getItem('deckforge_state');
-    if (!raw) return; // use defaults
-    const data = JSON.parse(raw);
-    applyImportedState(data);
-  } catch (e) { console.warn('DeckForge: load failed', e); }
-}
-
-function applyImportedState(data) {
-  if (data.keys) {
-    state.keys = {};
-    Object.entries(data.keys).forEach(([idx, k]) => {
-      if (k) state.keys[parseInt(idx)] = k;
-    });
-  }
-  if (data.device) {
-    currentDevice = data.device;
-    state.device = data.device;
-    const sel = document.getElementById('deviceSelect');
-    if (sel) sel.value = currentDevice;
-  }
-  if (data.profiles) state.profiles = data.profiles;
-  if (data.appTriggers) state.appTriggers = data.appTriggers;
-  if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
-  if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
-  if (data.profileName) state.profileName = data.profileName;
-  const exportName = document.getElementById('exportProfileName');
-  if (exportName && state.profileName) exportName.value = state.profileName;
-}
-
-function saveSnapshot(label = null) {
-  try {
-    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
-    snapshots.push({
-      ts: Date.now(),
-      label,
-      keys: JSON.parse(JSON.stringify(state.keys)),
-      device: currentDevice,
-    });
-    // Keep last 30 snapshots max
-    if (snapshots.length > 30) snapshots.splice(0, snapshots.length - 30);
-    localStorage.setItem('deckforge_history', JSON.stringify(snapshots));
-    return snapshots[snapshots.length - 1];
-  } catch (e) { /* quota exceeded — silently skip */ }
-  return null;
-}
-
-function shareLayout() {
-  const data = {
-    version: 2,
-    profileName: state.profileName,
-    device: currentDevice,
-    appTriggers: state.appTriggers,
-    keys: state.keys,
-    wheelProfiles: state.wheelProfiles,
-    activeWheelProfile: state.activeWheelProfile,
-  };
-  const json = JSON.stringify(data);
-  const compressed = btoa(encodeURIComponent(json));
-  const url = location.origin + location.pathname + '#layout=' + compressed;
-  navigator.clipboard.writeText(url).then(() => {
-    toast('Share link copied to clipboard');
-  }).catch(() => {
-    // Fallback: show URL in prompt
-    prompt('Share this URL:', url);
-  });
-}
-
-function formatSnapshotTime(ts) {
-  const d = new Date(ts);
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function saveNamedSnapshot() {
-  const label = prompt('Snapshot label:', `Snapshot ${formatSnapshotTime(Date.now())}`);
-  if (label === null) return;
-  saveSnapshot(label || null);
-  renderSidebar();
-  toast('Snapshot saved');
-}
-
-function loadSnapshot(index) {
-  try {
-    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
-    const snapshot = snapshots[index];
-    if (!snapshot) return;
-    if (!confirm(`Restore snapshot from ${snapshot.label || formatSnapshotTime(snapshot.ts)}?`)) return;
-    state.keys = JSON.parse(JSON.stringify(snapshot.keys || {}));
-    currentDevice = snapshot.device || currentDevice;
-    state.device = currentDevice;
-    const sel = document.getElementById('deviceSelect');
-    if (sel) sel.value = currentDevice;
-    diffMode = false;
-    diffBase = null;
-    document.getElementById('diffBar').classList.remove('show');
-    renderGrid();
-    renderSidebar();
-    renderExport();
-    saveState();
-    toast('Snapshot restored');
-  } catch (e) {
-    toast('Snapshot restore failed');
-  }
-}
-
-function showDiff(index = null) {
-  try {
-    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
-    if (!snapshots.length) {
-      toast('No snapshots to diff');
-      return;
-    }
-    const snapshot = index === null ? snapshots[snapshots.length - 1] : snapshots[index];
-    if (!snapshot) {
-      toast('Snapshot not found');
-      return;
-    }
-    diffBase = JSON.parse(JSON.stringify(snapshot.keys || {}));
-    diffMode = true;
-    document.getElementById('diffStatus').textContent = `current vs ${snapshot.label || formatSnapshotTime(snapshot.ts)}`;
-    document.getElementById('diffBar').classList.add('show');
-    renderGrid();
-    toast('Diff mode enabled');
-  } catch (e) {
-    toast('Diff failed');
-  }
-}
-
-function exitDiff() {
-  diffMode = false;
-  diffBase = null;
-  document.getElementById('diffBar').classList.remove('show');
-  renderGrid();
-}
-
-function resetDefaults() {
-  if (!confirm('Reset all keys and profiles to factory defaults? This cannot be undone.')) return;
-  localStorage.removeItem('deckforge_state');
-  localStorage.removeItem('deckforge_history');
-  location.reload();
-}
-
-function undoLayout() {
-  try {
-    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
-    if (snapshots.length < 2) { toast('Nothing to undo'); return; }
-    snapshots.pop(); // remove current
-    const prev = snapshots[snapshots.length - 1];
-    localStorage.setItem('deckforge_history', JSON.stringify(snapshots));
-    state.keys = prev.keys;
-    currentDevice = prev.device;
-    state.device = prev.device;
-    const sel = document.getElementById('deviceSelect');
-    if (sel) sel.value = currentDevice;
-    renderGrid();
-    renderSidebar();
-    renderExport();
-    saveState();
-    toast('Undone');
-  } catch (e) { toast('Undo failed'); }
-}
-
-
 // ── INIT ──────────────────────────────────────────────────────────
 function init() {
-  loadState();
   renderSidebar();
   renderGrid();
   renderPanelTabs();
   renderExport();
-renderPageTabs();
   updateWheelSelect();
   renderWheelBindings(state.activeWheelProfile);
 }
@@ -1726,27 +1319,10 @@ function renderSidebar() {
   pl.innerHTML = state.profiles.map(p => `
     <div class="profile-item ${p.active ? 'active' : ''}" onclick="activateProfile('${p.id}')">
       <div class="profile-dot ${p.active ? '' : 'inactive'}"></div>
-      <div class="profile-name">${escapeHtml(p.name)}</div>
+      <div class="profile-name">${p.name}</div>
       <div class="profile-app-count">${Object.keys(state.keys).length}k</div>
     </div>
   `).join('');
-
-  // App triggers
-  const atl = document.getElementById('appTriggerList');
-  if (atl) {
-    atl.innerHTML = state.appTriggers.length
-      ? state.appTriggers.map((trigger, index) => `
-        <div class="app-trigger-item">
-          <div class="app-trigger-icon">${escapeHtml(trigger.icon || '💻')}</div>
-          <div class="app-trigger-body">
-            <div class="app-trigger-name">${escapeHtml(trigger.app || 'App')}</div>
-            <div class="app-trigger-meta">${escapeHtml(trigger.bundle || 'bundle id')} -> ${escapeHtml(trigger.profileId || 'main')}</div>
-          </div>
-          <button class="app-trigger-action" onclick="previewAppTrigger(${index})">use</button>
-        </div>
-      `).join('')
-      : `<div style="font-size:10px;color:var(--muted);padding:4px 0">No app triggers yet</div>`;
-  }
 
   // Zones
   const zl = document.getElementById('zoneList');
@@ -1780,32 +1356,9 @@ function renderSidebar() {
   ws.innerHTML = state.wheelProfiles.map(p => `
     <div class="profile-item ${p.id === state.activeWheelProfile ? 'active' : ''}" onclick="setActiveWheelProfile('${p.id}')">
       <div class="profile-dot ${p.id === state.activeWheelProfile ? '' : 'inactive'}"></div>
-      <div class="profile-name">${escapeHtml(p.name)}</div>
+      <div class="profile-name">${p.name}</div>
     </div>
   `).join('');
-
-  // History
-  const hl = document.getElementById('historyList');
-  if (hl) {
-    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]').slice().reverse();
-    hl.innerHTML = snapshots.length
-      ? snapshots.slice(0, 10).map((snapshot, reverseIndex) => {
-        const actualIndex = snapshots.length - 1 - reverseIndex;
-        return `
-          <div class="history-item">
-            <div class="history-body">
-              <div class="history-name">${escapeHtml(snapshot.label || formatSnapshotTime(snapshot.ts))}</div>
-              <div class="history-meta">${Object.keys(snapshot.keys || {}).length} keys · ${escapeHtml(snapshot.device || 'xl')}</div>
-            </div>
-            <div class="history-actions">
-              <button class="history-action" onclick="loadSnapshot(${actualIndex})">restore</button>
-              <button class="history-action" onclick="showDiff(${actualIndex})">diff</button>
-            </div>
-          </div>
-        `;
-      }).join('')
-      : `<div style="font-size:10px;color:var(--muted);padding:4px 0">No snapshots yet</div>`;
-  }
 }
 
 // ── GRID ──────────────────────────────────────────────────────────
@@ -1821,23 +1374,14 @@ function renderGrid() {
   grid.innerHTML = '';
   for (let i = 0; i < count; i++) {
     const k = state.keys[i];
-    const vr = validationResults[i];
     const el = document.createElement('div');
-    let classes = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
-    if (diffMode && diffBase) {
-      const baseKey = diffBase[i];
-      if (!baseKey && k) classes += ' diff-added';
-      else if (baseKey && !k) classes += ' diff-removed';
-      else if (baseKey && k && JSON.stringify(baseKey) !== JSON.stringify(k)) classes += ' diff-modified';
-    }
-    el.className = classes;
+    el.className = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
     el.dataset.index = i;
     el.innerHTML = `
       <div class="key-index">${i}</div>
       ${k?.active ? '<div class="key-active-dot"></div>' : ''}
-      ${vr ? `<div class="key-validation-dot ${vr.status}"></div>` : ''}
-      <div class="key-icon">${escapeHtml(k?.icon || '')}</div>
-      <div class="key-label">${escapeHtml(k?.label || '').replace(/\n/g, '<br>')}</div>
+      <div class="key-icon">${k?.icon || ''}</div>
+      <div class="key-label">${(k?.label || '').replace(/\n/g, '<br>')}</div>
     `;
     el.onclick = () => selectKey(i);
     grid.appendChild(el);
@@ -1876,6 +1420,10 @@ function selectKey(index) {
   document.getElementById('selectionInfo').textContent = `key ${index} selected`;
   showKeyEditor(index);
   renderExport();
+
+  // Mobile: auto-open panel when key is selected
+  const panel = document.getElementById('panelAside');
+  if (panel && window.innerWidth <= 960) panel.classList.remove('panel-closed');
 }
 
 function showKeyEditor(index) {
@@ -1939,7 +1487,6 @@ function updateKey() {
   selectKey(selectedKey);
   renderSidebar();
   renderExport();
-  saveState();
 }
 
 function clearSelected() {
@@ -1951,7 +1498,6 @@ function clearSelected() {
   selectedKey = null;
   renderSidebar();
   renderExport();
-  saveState();
   toast('Key cleared');
 }
 
@@ -1961,7 +1507,6 @@ function clearAll() {
   renderGrid();
   renderSidebar();
   renderExport();
-  saveState();
   toast('Layout cleared');
 }
 
@@ -1975,7 +1520,7 @@ function selectZone(zid) {
 function updateWheelSelect() {
   const sel = document.getElementById('wheelProfileSelect');
   sel.innerHTML = state.wheelProfiles.map(p =>
-    `<option value="${escapeHtml(p.id)}" ${p.id === state.activeWheelProfile ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+    `<option value="${p.id}" ${p.id === state.activeWheelProfile ? 'selected' : ''}>${p.name}</option>`
   ).join('');
 }
 
@@ -1993,19 +1538,19 @@ function renderWheelBindings(profileId) {
       <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">App ${i+1}</div>
       <div class="field" style="margin-bottom:6px">
         <label>Application</label>
-        <input type="text" value="${escapeHtml(b.app)}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${b.app}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">↑ up</div>
-        <input type="text" value="${escapeHtml(b.up)}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${b.up}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">↓ down</div>
-        <input type="text" value="${escapeHtml(b.down)}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${b.down}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">● click</div>
-        <input type="text" value="${escapeHtml(b.click)}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${b.click}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
     </div>
   `).join('') + `<button class="btn" style="width:100%;font-size:10px" onclick="addWheelBinding('${profileId}')">+ add app binding</button>`;
@@ -2016,7 +1561,6 @@ function updateWheelBinding(idx, field, val) {
   if (profile && profile.bindings[idx]) {
     profile.bindings[idx][field] = val;
     renderExport();
-    saveState();
   }
 }
 
@@ -2031,7 +1575,6 @@ function addWheelBinding(profileId) {
 function saveWheelProfile() {
   renderSidebar();
   renderExport();
-  saveState();
   toast('Wheel profile saved');
 }
 
@@ -2051,7 +1594,6 @@ function addWheelProfile() {
   ]});
   updateWheelSelect();
   renderSidebar();
-  saveState();
   toast(`Wheel profile "${name}" added`);
 }
 
@@ -2061,131 +1603,11 @@ function addProfile() {
   if (!name) return;
   state.profiles.push({ id: name.toLowerCase().replace(/\s+/g,'_'), name, active: false });
   renderSidebar();
-  saveState();
 }
 
 function activateProfile(id) {
   state.profiles.forEach(p => p.active = p.id === id);
   renderSidebar();
-  saveState();
-}
-
-function updateExportProfileName() {
-  const exportName = document.getElementById('exportProfileName');
-  if (!exportName) return;
-  state.profileName = exportName.value.trim() || 'DaveDeck v1';
-  renderExport();
-  saveState();
-}
-
-function addAppTrigger() {
-  const app = prompt('App name:', 'New App');
-  if (!app) return;
-  const bundle = prompt('Bundle ID:', 'com.example.app') || '';
-  const icon = prompt('Icon (emoji):', '💻') || '💻';
-  const profileId = prompt('Profile ID to activate:', state.profiles.find(p => p.active)?.id || 'main') || 'main';
-  state.appTriggers.push({ app, bundle, icon, profileId });
-  renderSidebar();
-  saveState();
-  toast(`App trigger added for ${app}`);
-}
-
-function previewAppTrigger(index) {
-  const trigger = state.appTriggers[index];
-  if (!trigger) return;
-  const target = state.profiles.find(p => p.id === trigger.profileId);
-  if (target) {
-    activateProfile(target.id);
-    toast(`${trigger.app} -> ${target.name}`);
-  } else {
-    toast(`${trigger.app} -> ${trigger.profileId}`);
-  }
-}
-
-function validateKeyAction(key) {
-  const type = key.action?.type || 'none';
-  const value = key.action?.value || '';
-  if (type === 'none' || !value.trim()) return { status: 'ok', msg: 'No action configured' };
-  if (type === 'url') {
-    try {
-      const parsed = new URL(value);
-      if (!['http:', 'https:', 'notion:', 'file:'].includes(parsed.protocol)) {
-        return { status: 'warn', msg: `Unusual protocol ${parsed.protocol}` };
-      }
-      return { status: 'ok', msg: `Valid URL for ${parsed.hostname || parsed.protocol}` };
-    } catch (e) {
-      return { status: 'err', msg: 'Invalid URL' };
-    }
-  }
-  if (type === 'hotkey') {
-    if (!/[A-Za-z0-9]/.test(value)) return { status: 'err', msg: 'Hotkey missing a final key' };
-    return { status: 'ok', msg: `Hotkey ${value}` };
-  }
-  if (type === 'shell') {
-    if (value.includes('rm -rf /')) return { status: 'err', msg: 'Potentially destructive shell command' };
-    return { status: 'ok', msg: 'Shell command configured' };
-  }
-  if (type === 'obs') {
-    return value.toLowerCase().includes('scene') || value.toLowerCase().includes('source')
-      ? { status: 'ok', msg: 'OBS action looks plausible' }
-      : { status: 'warn', msg: 'OBS action may need a scene or source target' };
-  }
-  if (type === 'vmix') {
-    return value.includes('Function=')
-      ? { status: 'ok', msg: 'vMix action includes Function=' }
-      : { status: 'warn', msg: 'vMix actions usually include Function=' };
-  }
-  return { status: 'ok', msg: `${type} action configured` };
-}
-
-function validateAll() {
-  validationResults = {};
-  const entries = Object.entries(state.keys).map(([index, key]) => ({
-    index: Number(index),
-    key,
-    result: validateKeyAction(key),
-  }));
-  entries.forEach(({ index, result }) => {
-    validationResults[index] = result;
-  });
-  const list = document.getElementById('validationList');
-  if (list) {
-    if (!entries.length) {
-      list.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:18px 0">No keys configured.</div>';
-    } else {
-      const counts = {
-        ok: entries.filter(item => item.result.status === 'ok').length,
-        warn: entries.filter(item => item.result.status === 'warn').length,
-        err: entries.filter(item => item.result.status === 'err').length,
-      };
-      list.innerHTML = `
-        <div class="validation-summary">
-          <span class="ok">● ${counts.ok} ok</span>
-          <span class="warn">● ${counts.warn} warn</span>
-          <span class="err">● ${counts.err} err</span>
-        </div>
-        ${entries.sort((a, b) => {
-          const order = { err: 0, warn: 1, ok: 2 };
-          return order[a.result.status] - order[b.result.status] || a.index - b.index;
-        }).map(({ index, key, result }) => `
-          <div class="validation-item ${result.status}">
-            <div class="validation-icon">${result.status === 'ok' ? '✓' : result.status === 'warn' ? '!' : '✕'}</div>
-            <div class="validation-copy">
-              <div class="validation-key">Key ${index} · ${escapeHtml((key.label || '').replace(/\n/g, ' ') || 'Untitled')}</div>
-              <div>${escapeHtml(result.msg)}</div>
-            </div>
-          </div>
-        `).join('')}
-      `;
-    }
-  }
-  renderGrid();
-  renderExport();
-  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.querySelector('[data-tab="validate"]').classList.add('active');
-  document.getElementById('tab-validate').classList.add('active');
-  toast('Validation complete');
 }
 
 // ── DEVICE ────────────────────────────────────────────────────────
@@ -2195,7 +1617,6 @@ function setDevice(val) {
   document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === val));
   renderGrid();
   renderExport();
-  saveState();
 }
 
 document.querySelectorAll('.model-tab').forEach(t => {
@@ -2228,48 +1649,19 @@ function buildJSON() {
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
     for (let i = 0; i < dev.cols * dev.rows; i++) {
       const k = state.keys[i];
-      if (k) rows.push(`${i},"${(k.icon||'').replace(/"/g,'""')}","${(k.label||'').replace(/\n/g,' ').replace(/"/g,'""')}","${(k.zone||'').replace(/"/g,'""')}",${k.active},"${(k.action?.type||'').replace(/"/g,'""')}","${(k.action?.value||'').replace(/"/g,'""')}","${(k.desc||'').replace(/"/g,'""')}"`);
+      if (k) rows.push(`${i},"${k.icon}","${(k.label||'').replace(/\n/g,' ')}","${k.zone}",${k.active},"${k.action?.type}","${k.action?.value}","${k.desc||''}"`);
     }
     return rows.join('\n');
   }
 
-  if (fmt === 'km') {
-    const macros = state.appTriggers.map(trigger => `
-  <dict>
-    <key>Name</key>
-    <string>${escapeXml(`DeckForge: ${trigger.app || 'App'}`)}</string>
-    <key>Bundle</key>
-    <string>${escapeXml(trigger.bundle || '')}</string>
-    <key>Profile</key>
-    <string>${escapeXml(trigger.profileId || 'main')}</string>
-  </dict>`).join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<array>\n${macros}\n</array>\n</plist>`;
-  }
-
-  if (fmt === 'ahk') {
-    const lines = ['#Requires AutoHotkey v2', '; DeckForge export', ''];
-    Object.entries(state.keys).forEach(([index, key]) => {
-      if (!key || key.action?.type !== 'hotkey' || !key.action?.value) return;
-      lines.push(`; Key ${index}: ${(key.label || '').replace(/\n/g, ' ')}`);
-      lines.push(`; ${key.action.value}`);
-      lines.push('');
-    });
-    state.appTriggers.forEach(trigger => {
-      lines.push(`; App trigger: ${trigger.app} -> ${trigger.profileId}`);
-    });
-    return lines.join('\n');
-  }
-
   const out = {
-    version: '2.0',
+    version: '1.0',
     generator: 'DeckForge',
     profile: profileName,
     device: { id: currentDevice, name: dev.name, cols: dev.cols, rows: dev.rows },
     keys: {},
-    appTriggers: state.appTriggers,
     wheelProfiles: state.wheelProfiles,
     activeWheelProfile: state.activeWheelProfile,
-    validationRun: Object.keys(validationResults).length ? validationResults : null,
     exportedAt: new Date().toISOString(),
   };
 
@@ -2313,11 +1705,6 @@ function renderExport() {
   const out = document.getElementById('jsonOutput');
   if (!out) return;
   const json = buildJSON();
-  const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
-  if (fmt === 'csv' || fmt === 'km' || fmt === 'ahk') {
-    out.textContent = json;
-    return;
-  }
   // Syntax highlight
   const hl = json
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -2333,6 +1720,7 @@ function copyJSON() {
     const cc = document.getElementById('copyConfirm');
     cc.classList.add('show');
     setTimeout(() => cc.classList.remove('show'), 2000);
+    flashSuccess(document.querySelector('[data-tab="export"]'));
     toast('Copied to clipboard');
   });
 }
@@ -2340,23 +1728,8 @@ function copyJSON() {
 function downloadJSON() {
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
   const name = document.getElementById('exportProfileName')?.value || 'layout';
-  const ext = fmt === 'csv'
-    ? 'csv'
-    : fmt === 'streamdeck'
-      ? 'streamDeckProfile'
-      : fmt === 'km'
-        ? 'kmmacros'
-        : fmt === 'ahk'
-          ? 'ahk'
-          : 'json';
-  const mime = fmt === 'csv'
-    ? 'text/csv'
-    : fmt === 'km'
-      ? 'text/xml'
-      : fmt === 'ahk'
-        ? 'text/plain'
-        : 'application/json';
-  const blob = new Blob([buildJSON()], { type: mime });
+  const ext = fmt === 'csv' ? 'csv' : fmt === 'streamdeck' ? 'streamDeckProfile' : 'json';
+  const blob = new Blob([buildJSON()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `${name.toLowerCase().replace(/\s+/g,'-')}.${ext}`;
@@ -2385,21 +1758,27 @@ function handleImport(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      applyImportedState({
-        ...data,
-        device: data.device?.id || data.device,
-        profileName: data.profile || data.profileName,
-      });
-      document.getElementById('deviceSelect').value = currentDevice;
+      if (data.keys) {
+        state.keys = {};
+        Object.entries(data.keys).forEach(([idx, k]) => {
+          if (k) state.keys[parseInt(idx)] = k;
+        });
+      }
+      if (data.device?.id) {
+        currentDevice = data.device.id;
+        document.getElementById('deviceSelect').value = currentDevice;
+      }
+      if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
+      if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
       renderGrid();
       renderSidebar();
       updateWheelSelect();
       renderWheelBindings(state.activeWheelProfile);
       renderExport();
-      saveState();
+      flashSuccess(document.querySelector('[data-tab="export"]'));
       toast('Layout imported');
     } catch {
-      toast('Invalid JSON file');
+      toast('Invalid JSON file', 'error');
     }
   };
   reader.readAsText(file);
@@ -2410,119 +1789,32 @@ document.querySelectorAll('input[name="exportFmt"]').forEach(r => {
 });
 
 // ── TOAST ────────────────────────────────────────────────────────
-function toast(msg) {
+function toast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.classList.remove('show', 'error');
+  if (type === 'error') t.classList.add('error');
+  // Force reflow so re-triggering works
+  void t.offsetWidth;
   t.classList.add('show');
   clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  toast._timer = setTimeout(() => t.classList.remove('show', 'error'), 2200);
+}
+
+function flashSuccess(el) {
+  if (!el) return;
+  el.classList.add('success-flash');
+  el.addEventListener('animationend', () => el.classList.remove('success-flash'), { once: true });
+}
+
+function shakeError(el) {
+  if (!el) return;
+  el.classList.add('shake');
+  el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
 }
 
 // ── GO ────────────────────────────────────────────────────────────
 init();
-
-
-// ── CONTEXT PAGES ──────────────────────────────────────────────────
-function renderPageTabs() {
-  const container = document.getElementById('pageTabs');
-  if (!container) return;
-  const pages = Object.entries(state.pages);
-  container.innerHTML = pages.map(([id, p]) =>
-    `<button class="page-tab ${id === currentPage ? 'active' : ''}" onclick="switchPage('${id}')">
-      <span>${p.icon}</span> ${p.name}
-    </button>`
-  ).join('') + `<button class="page-tab add-page" onclick="addPage()">+</button>`;
-}
-
-function switchPage(pageId) {
-  if (!state.pages[pageId]) return;
-  // Save current keys to pageKeys
-  state.pageKeys[currentPage] = JSON.parse(JSON.stringify(state.keys));
-  // Load target page keys
-  currentPage = pageId;
-  if (state.pageKeys[pageId]) {
-    state.keys = JSON.parse(JSON.stringify(state.pageKeys[pageId]));
-  } else {
-    state.keys = {};
-  }
-  selectedKey = null;
-  renderGrid();
-  renderSidebar();
-  renderPageTabs();
-  renderExport();
-  document.getElementById('noKeyMsg').style.display = 'block';
-  document.getElementById('keyEditor').style.display = 'none';
-  toast('Switched to ' + state.pages[pageId].name);
-}
-
-function addPage() {
-  const name = prompt('Page name:');
-  if (!name) return;
-  const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  if (state.pages[id]) { toast('Page already exists'); return; }
-  const icon = prompt('Page icon (emoji):', '📄') || '📄';
-  state.pages[id] = { name, icon };
-  state.pageKeys[id] = {};
-  switchPage(id);
-}
-
-function deletePage(pageId) {
-  if (pageId === 'main') { toast('Cannot delete Main page'); return; }
-  if (!confirm('Delete page ' + state.pages[pageId]?.name + '?')) return;
-  delete state.pages[pageId];
-  delete state.pageKeys[pageId];
-  if (currentPage === pageId) switchPage('main');
-  renderPageTabs();
-}
-
-function renamePage(pageId) {
-  const page = state.pages[pageId];
-  if (!page) return;
-  const name = prompt('New name:', page.name);
-  if (!name) return;
-  page.name = name;
-  renderPageTabs();
-}
-
-// ── HOTKEY CAPTURE ──────────────────────────────────────────────────
-function startHotkeyCapture() {
-  recordingHotkey = true;
-  const btn = document.getElementById('hotkeyRecordBtn');
-  if (btn) {
-    btn.textContent = '⏺ Press keys...';
-    btn.style.background = '#ef4444';
-    btn.style.color = '#fff';
-  }
-  document.addEventListener('keydown', captureHotkey, { once: true });
-}
-
-function captureHotkey(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const parts = [];
-  if (e.metaKey) parts.push('Cmd');
-  if (e.ctrlKey) parts.push('Ctrl');
-  if (e.altKey) parts.push('Alt');
-  if (e.shiftKey) parts.push('Shift');
-  const key = e.key;
-  if (!['Meta','Control','Alt','Shift'].includes(key)) {
-    parts.push(key.length === 1 ? key.toUpperCase() : key);
-  }
-  const combo = parts.join('+');
-  const input = document.getElementById('fActionValue');
-  if (input && combo) {
-    input.value = combo;
-    updateKey();
-  }
-  recordingHotkey = false;
-  const btn = document.getElementById('hotkeyRecordBtn');
-  if (btn) {
-    btn.textContent = '⏺ Record';
-    btn.style.background = '';
-    btn.style.color = '';
-  }
-  toast('Captured: ' + combo);
-}
 </script>
 </body>
 </html>
