@@ -280,6 +280,76 @@ header {
   color: var(--muted);
 }
 
+.app-trigger-list,
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-trigger-item,
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--s2);
+}
+
+.app-trigger-item:hover,
+.history-item:hover {
+  border-color: var(--border2);
+}
+
+.app-trigger-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.app-trigger-body,
+.history-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-trigger-name,
+.history-name {
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-trigger-meta,
+.history-meta {
+  margin-top: 2px;
+  font-size: 8px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-trigger-action,
+.history-action {
+  font-size: 8px;
+  color: var(--green);
+  border: 1px solid var(--green-border);
+  background: var(--green-bg);
+  border-radius: 999px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.history-actions {
+  display: flex;
+  gap: 4px;
+}
+
 /* ── MAIN ── */
 .main {
   grid-area: main;
@@ -416,6 +486,35 @@ header {
   background: var(--green);
 }
 
+.key-validation-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.key-validation-dot.ok { background: var(--teal); }
+.key-validation-dot.warn { background: var(--amber); }
+.key-validation-dot.err { background: var(--coral); }
+
+.key.diff-added {
+  border-color: var(--teal) !important;
+  box-shadow: 0 0 0 1px var(--teal);
+}
+
+.key.diff-removed {
+  border-color: var(--coral) !important;
+  box-shadow: 0 0 0 1px var(--coral);
+  opacity: 0.55;
+}
+
+.key.diff-modified {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 1px var(--amber);
+}
+
 /* Zone colors */
 .kz-green  { background: #0d1f04 !important; border-color: #2a5010 !important; }
 .kz-green  .key-label { color: #b8f542; }
@@ -455,6 +554,91 @@ header {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 12px;
+}
+
+.diff-bar {
+  width: 100%;
+  max-width: 720px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #5a3808;
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: 10px;
+}
+
+.diff-bar.show {
+  display: flex;
+}
+
+.diff-status {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.validation-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 10px;
+}
+
+.validation-summary .ok { color: var(--teal); }
+.validation-summary .warn { color: var(--amber); }
+.validation-summary .err { color: var(--coral); }
+
+.validation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.validation-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+}
+
+.validation-item.ok {
+  border-color: var(--green-border);
+  background: var(--green-bg);
+}
+
+.validation-item.warn {
+  border-color: #5a3808;
+  background: var(--amber-bg);
+}
+
+.validation-item.err {
+  border-color: #5a2808;
+  background: var(--coral-bg);
+}
+
+.validation-icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.validation-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.validation-key {
+  font-size: 8px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
 }
 
 /* Key editor form */
@@ -956,6 +1140,8 @@ header {
   <div class="header-sep"></div>
   <div style="font-size:9px;color:var(--muted)" id="selectionInfo">click a key to edit</div>
   <div class="header-actions">
+    <button class="btn" onclick="validateAll()">validate</button>
+    <button class="btn" onclick="showDiff()">diff</button>
     <button class="btn" onclick="clearSelected()">clear key</button>
     <button class="btn" onclick="clearAll()">clear all</button>
     <button class="btn btn-primary" onclick="exportJSON()">export JSON</button>
@@ -974,6 +1160,12 @@ header {
   </div>
 
   <div class="sidebar-section">
+    <div class="sidebar-title">App Triggers</div>
+    <div class="app-trigger-list" id="appTriggerList"></div>
+    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addAppTrigger()">+ app trigger</button>
+  </div>
+
+  <div class="sidebar-section">
     <div class="sidebar-title">Zone Colors</div>
     <div class="zone-list" id="zoneList"></div>
   </div>
@@ -984,6 +1176,12 @@ header {
   </div>
 
   <div class="sidebar-section" style="flex:1">
+    <div class="sidebar-title">History</div>
+    <div class="history-list" id="historyList"></div>
+    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="saveNamedSnapshot()">+ snapshot</button>
+  </div>
+
+  <div class="sidebar-section">
     <div class="sidebar-title">Wheel Profiles</div>
     <div id="wheelSidebar"></div>
     <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addWheelProfile()">+ wheel profile</button>
@@ -1001,6 +1199,12 @@ header {
       <option value="plus">Stream Deck + — 4×2 (8 keys + dial)</option>
     </select>
     <div class="grid-info" id="gridInfo">8 cols × 4 rows</div>
+  </div>
+
+  <div class="diff-bar" id="diffBar">
+    <span>Diff mode</span>
+    <span class="diff-status" id="diffStatus">comparing current layout to latest snapshot</span>
+    <button class="btn" style="margin-left:auto;padding:4px 10px" onclick="exitDiff()">exit</button>
   </div>
 
   <div class="deck-wrap">
@@ -1031,6 +1235,7 @@ header {
   <div class="panel-tabs">
     <button class="panel-tab active" data-tab="edit">Edit Key</button>
     <button class="panel-tab" data-tab="wheel">Wheel</button>
+    <button class="panel-tab" data-tab="validate">Validate</button>
     <button class="panel-tab" data-tab="export">Export</button>
   </div>
 
@@ -1108,12 +1313,23 @@ header {
     </div>
   </div>
 
+  <!-- VALIDATE TAB -->
+  <div class="tab-content" id="tab-validate">
+    <div class="panel-section">
+      <div class="panel-title">Validation</div>
+      <button class="btn" style="width:100%;margin-bottom:10px" onclick="validateAll()">run validation</button>
+      <div class="validation-list" id="validationList">
+        <div style="font-size:10px;color:var(--muted);text-align:center;padding:18px 0">Run validation to inspect configured actions.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- EXPORT TAB -->
   <div class="tab-content" id="tab-export">
     <div class="panel-section">
       <div class="panel-title">Profile Name</div>
       <div class="field">
-        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1">
+        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1" oninput="updateExportProfileName()">
       </div>
     </div>
     <div class="panel-section">
@@ -1140,6 +1356,12 @@ header {
           <input type="radio" name="exportFmt" value="streamdeck"> Stream Deck profile (.streamDeckProfile)
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="radio" name="exportFmt" value="km"> Keyboard Maestro (.kmmacros)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="radio" name="exportFmt" value="ahk"> AutoHotKey (.ahk)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
           <input type="radio" name="exportFmt" value="csv"> CSV (for docs/sharing)
         </label>
       </div>
@@ -1156,6 +1378,15 @@ function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
   return d.innerHTML;
+}
+
+function escapeXml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 // ── STATE ──────────────────────────────────────────────────────────
@@ -1186,6 +1417,9 @@ let selectedKey = null;
 let selectedZone = 'green';
 let currentPage = 'main';
 let recordingHotkey = false;
+let diffMode = false;
+let diffBase = null;
+let validationResults = {};
 
 // ── DATA ──────────────────────────────────────────────────────────
 let state = {
@@ -1193,6 +1427,11 @@ let state = {
   device: 'xl',
   profiles: [
     { id: 'main', name: 'Main', active: true }
+  ],
+  appTriggers: [
+    { app: 'VS Code', bundle: 'com.microsoft.VSCode', icon: '💻', profileId: 'main' },
+    { app: 'OBS Studio', bundle: 'com.obsproject.obs-studio', icon: '🎬', profileId: 'main' },
+    { app: 'Notion', bundle: 'notion.id', icon: '📓', profileId: 'main' },
   ],
   pages: {
     main: { name: 'Main', icon: '🏠' },
@@ -1272,11 +1511,16 @@ DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
 // ── PERSISTENCE ──────────────────────────────────────────────────
 function saveState() {
   try {
+    const exportName = document.getElementById('exportProfileName');
+    if (exportName && exportName.value.trim()) {
+      state.profileName = exportName.value.trim();
+    }
     const s = JSON.stringify({
       version: 2,
       profileName: state.profileName,
       device: currentDevice,
       profiles: state.profiles,
+      appTriggers: state.appTriggers,
       keys: state.keys,
       wheelProfiles: state.wheelProfiles,
       activeWheelProfile: state.activeWheelProfile,
@@ -1322,23 +1566,29 @@ function applyImportedState(data) {
     if (sel) sel.value = currentDevice;
   }
   if (data.profiles) state.profiles = data.profiles;
+  if (data.appTriggers) state.appTriggers = data.appTriggers;
   if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
   if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
   if (data.profileName) state.profileName = data.profileName;
+  const exportName = document.getElementById('exportProfileName');
+  if (exportName && state.profileName) exportName.value = state.profileName;
 }
 
-function saveSnapshot() {
+function saveSnapshot(label = null) {
   try {
     const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
     snapshots.push({
       ts: Date.now(),
+      label,
       keys: JSON.parse(JSON.stringify(state.keys)),
       device: currentDevice,
     });
     // Keep last 30 snapshots max
     if (snapshots.length > 30) snapshots.splice(0, snapshots.length - 30);
     localStorage.setItem('deckforge_history', JSON.stringify(snapshots));
+    return snapshots[snapshots.length - 1];
   } catch (e) { /* quota exceeded — silently skip */ }
+  return null;
 }
 
 function shareLayout() {
@@ -1346,6 +1596,7 @@ function shareLayout() {
     version: 2,
     profileName: state.profileName,
     device: currentDevice,
+    appTriggers: state.appTriggers,
     keys: state.keys,
     wheelProfiles: state.wheelProfiles,
     activeWheelProfile: state.activeWheelProfile,
@@ -1359,6 +1610,73 @@ function shareLayout() {
     // Fallback: show URL in prompt
     prompt('Share this URL:', url);
   });
+}
+
+function formatSnapshotTime(ts) {
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function saveNamedSnapshot() {
+  const label = prompt('Snapshot label:', `Snapshot ${formatSnapshotTime(Date.now())}`);
+  if (label === null) return;
+  saveSnapshot(label || null);
+  renderSidebar();
+  toast('Snapshot saved');
+}
+
+function loadSnapshot(index) {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
+    const snapshot = snapshots[index];
+    if (!snapshot) return;
+    if (!confirm(`Restore snapshot from ${snapshot.label || formatSnapshotTime(snapshot.ts)}?`)) return;
+    state.keys = JSON.parse(JSON.stringify(snapshot.keys || {}));
+    currentDevice = snapshot.device || currentDevice;
+    state.device = currentDevice;
+    const sel = document.getElementById('deviceSelect');
+    if (sel) sel.value = currentDevice;
+    diffMode = false;
+    diffBase = null;
+    document.getElementById('diffBar').classList.remove('show');
+    renderGrid();
+    renderSidebar();
+    renderExport();
+    saveState();
+    toast('Snapshot restored');
+  } catch (e) {
+    toast('Snapshot restore failed');
+  }
+}
+
+function showDiff(index = null) {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
+    if (!snapshots.length) {
+      toast('No snapshots to diff');
+      return;
+    }
+    const snapshot = index === null ? snapshots[snapshots.length - 1] : snapshots[index];
+    if (!snapshot) {
+      toast('Snapshot not found');
+      return;
+    }
+    diffBase = JSON.parse(JSON.stringify(snapshot.keys || {}));
+    diffMode = true;
+    document.getElementById('diffStatus').textContent = `current vs ${snapshot.label || formatSnapshotTime(snapshot.ts)}`;
+    document.getElementById('diffBar').classList.add('show');
+    renderGrid();
+    toast('Diff mode enabled');
+  } catch (e) {
+    toast('Diff failed');
+  }
+}
+
+function exitDiff() {
+  diffMode = false;
+  diffBase = null;
+  document.getElementById('diffBar').classList.remove('show');
+  renderGrid();
 }
 
 function resetDefaults() {
@@ -1413,6 +1731,23 @@ function renderSidebar() {
     </div>
   `).join('');
 
+  // App triggers
+  const atl = document.getElementById('appTriggerList');
+  if (atl) {
+    atl.innerHTML = state.appTriggers.length
+      ? state.appTriggers.map((trigger, index) => `
+        <div class="app-trigger-item">
+          <div class="app-trigger-icon">${escapeHtml(trigger.icon || '💻')}</div>
+          <div class="app-trigger-body">
+            <div class="app-trigger-name">${escapeHtml(trigger.app || 'App')}</div>
+            <div class="app-trigger-meta">${escapeHtml(trigger.bundle || 'bundle id')} -> ${escapeHtml(trigger.profileId || 'main')}</div>
+          </div>
+          <button class="app-trigger-action" onclick="previewAppTrigger(${index})">use</button>
+        </div>
+      `).join('')
+      : `<div style="font-size:10px;color:var(--muted);padding:4px 0">No app triggers yet</div>`;
+  }
+
   // Zones
   const zl = document.getElementById('zoneList');
   zl.innerHTML = ZONES.map(z => `
@@ -1448,6 +1783,29 @@ function renderSidebar() {
       <div class="profile-name">${escapeHtml(p.name)}</div>
     </div>
   `).join('');
+
+  // History
+  const hl = document.getElementById('historyList');
+  if (hl) {
+    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]').slice().reverse();
+    hl.innerHTML = snapshots.length
+      ? snapshots.slice(0, 10).map((snapshot, reverseIndex) => {
+        const actualIndex = snapshots.length - 1 - reverseIndex;
+        return `
+          <div class="history-item">
+            <div class="history-body">
+              <div class="history-name">${escapeHtml(snapshot.label || formatSnapshotTime(snapshot.ts))}</div>
+              <div class="history-meta">${Object.keys(snapshot.keys || {}).length} keys · ${escapeHtml(snapshot.device || 'xl')}</div>
+            </div>
+            <div class="history-actions">
+              <button class="history-action" onclick="loadSnapshot(${actualIndex})">restore</button>
+              <button class="history-action" onclick="showDiff(${actualIndex})">diff</button>
+            </div>
+          </div>
+        `;
+      }).join('')
+      : `<div style="font-size:10px;color:var(--muted);padding:4px 0">No snapshots yet</div>`;
+  }
 }
 
 // ── GRID ──────────────────────────────────────────────────────────
@@ -1463,12 +1821,21 @@ function renderGrid() {
   grid.innerHTML = '';
   for (let i = 0; i < count; i++) {
     const k = state.keys[i];
+    const vr = validationResults[i];
     const el = document.createElement('div');
-    el.className = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
+    let classes = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
+    if (diffMode && diffBase) {
+      const baseKey = diffBase[i];
+      if (!baseKey && k) classes += ' diff-added';
+      else if (baseKey && !k) classes += ' diff-removed';
+      else if (baseKey && k && JSON.stringify(baseKey) !== JSON.stringify(k)) classes += ' diff-modified';
+    }
+    el.className = classes;
     el.dataset.index = i;
     el.innerHTML = `
       <div class="key-index">${i}</div>
       ${k?.active ? '<div class="key-active-dot"></div>' : ''}
+      ${vr ? `<div class="key-validation-dot ${vr.status}"></div>` : ''}
       <div class="key-icon">${escapeHtml(k?.icon || '')}</div>
       <div class="key-label">${escapeHtml(k?.label || '').replace(/\n/g, '<br>')}</div>
     `;
@@ -1703,6 +2070,124 @@ function activateProfile(id) {
   saveState();
 }
 
+function updateExportProfileName() {
+  const exportName = document.getElementById('exportProfileName');
+  if (!exportName) return;
+  state.profileName = exportName.value.trim() || 'DaveDeck v1';
+  renderExport();
+  saveState();
+}
+
+function addAppTrigger() {
+  const app = prompt('App name:', 'New App');
+  if (!app) return;
+  const bundle = prompt('Bundle ID:', 'com.example.app') || '';
+  const icon = prompt('Icon (emoji):', '💻') || '💻';
+  const profileId = prompt('Profile ID to activate:', state.profiles.find(p => p.active)?.id || 'main') || 'main';
+  state.appTriggers.push({ app, bundle, icon, profileId });
+  renderSidebar();
+  saveState();
+  toast(`App trigger added for ${app}`);
+}
+
+function previewAppTrigger(index) {
+  const trigger = state.appTriggers[index];
+  if (!trigger) return;
+  const target = state.profiles.find(p => p.id === trigger.profileId);
+  if (target) {
+    activateProfile(target.id);
+    toast(`${trigger.app} -> ${target.name}`);
+  } else {
+    toast(`${trigger.app} -> ${trigger.profileId}`);
+  }
+}
+
+function validateKeyAction(key) {
+  const type = key.action?.type || 'none';
+  const value = key.action?.value || '';
+  if (type === 'none' || !value.trim()) return { status: 'ok', msg: 'No action configured' };
+  if (type === 'url') {
+    try {
+      const parsed = new URL(value);
+      if (!['http:', 'https:', 'notion:', 'file:'].includes(parsed.protocol)) {
+        return { status: 'warn', msg: `Unusual protocol ${parsed.protocol}` };
+      }
+      return { status: 'ok', msg: `Valid URL for ${parsed.hostname || parsed.protocol}` };
+    } catch (e) {
+      return { status: 'err', msg: 'Invalid URL' };
+    }
+  }
+  if (type === 'hotkey') {
+    if (!/[A-Za-z0-9]/.test(value)) return { status: 'err', msg: 'Hotkey missing a final key' };
+    return { status: 'ok', msg: `Hotkey ${value}` };
+  }
+  if (type === 'shell') {
+    if (value.includes('rm -rf /')) return { status: 'err', msg: 'Potentially destructive shell command' };
+    return { status: 'ok', msg: 'Shell command configured' };
+  }
+  if (type === 'obs') {
+    return value.toLowerCase().includes('scene') || value.toLowerCase().includes('source')
+      ? { status: 'ok', msg: 'OBS action looks plausible' }
+      : { status: 'warn', msg: 'OBS action may need a scene or source target' };
+  }
+  if (type === 'vmix') {
+    return value.includes('Function=')
+      ? { status: 'ok', msg: 'vMix action includes Function=' }
+      : { status: 'warn', msg: 'vMix actions usually include Function=' };
+  }
+  return { status: 'ok', msg: `${type} action configured` };
+}
+
+function validateAll() {
+  validationResults = {};
+  const entries = Object.entries(state.keys).map(([index, key]) => ({
+    index: Number(index),
+    key,
+    result: validateKeyAction(key),
+  }));
+  entries.forEach(({ index, result }) => {
+    validationResults[index] = result;
+  });
+  const list = document.getElementById('validationList');
+  if (list) {
+    if (!entries.length) {
+      list.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:18px 0">No keys configured.</div>';
+    } else {
+      const counts = {
+        ok: entries.filter(item => item.result.status === 'ok').length,
+        warn: entries.filter(item => item.result.status === 'warn').length,
+        err: entries.filter(item => item.result.status === 'err').length,
+      };
+      list.innerHTML = `
+        <div class="validation-summary">
+          <span class="ok">● ${counts.ok} ok</span>
+          <span class="warn">● ${counts.warn} warn</span>
+          <span class="err">● ${counts.err} err</span>
+        </div>
+        ${entries.sort((a, b) => {
+          const order = { err: 0, warn: 1, ok: 2 };
+          return order[a.result.status] - order[b.result.status] || a.index - b.index;
+        }).map(({ index, key, result }) => `
+          <div class="validation-item ${result.status}">
+            <div class="validation-icon">${result.status === 'ok' ? '✓' : result.status === 'warn' ? '!' : '✕'}</div>
+            <div class="validation-copy">
+              <div class="validation-key">Key ${index} · ${escapeHtml((key.label || '').replace(/\n/g, ' ') || 'Untitled')}</div>
+              <div>${escapeHtml(result.msg)}</div>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }
+  }
+  renderGrid();
+  renderExport();
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('[data-tab="validate"]').classList.add('active');
+  document.getElementById('tab-validate').classList.add('active');
+  toast('Validation complete');
+}
+
 // ── DEVICE ────────────────────────────────────────────────────────
 function setDevice(val) {
   currentDevice = val;
@@ -1743,19 +2228,48 @@ function buildJSON() {
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
     for (let i = 0; i < dev.cols * dev.rows; i++) {
       const k = state.keys[i];
-      if (k) rows.push(`${i},"${k.icon}","${(k.label||'').replace(/\n/g,' ')}","${k.zone}",${k.active},"${k.action?.type}","${k.action?.value}","${k.desc||''}"`);
+      if (k) rows.push(`${i},"${(k.icon||'').replace(/"/g,'""')}","${(k.label||'').replace(/\n/g,' ').replace(/"/g,'""')}","${(k.zone||'').replace(/"/g,'""')}",${k.active},"${(k.action?.type||'').replace(/"/g,'""')}","${(k.action?.value||'').replace(/"/g,'""')}","${(k.desc||'').replace(/"/g,'""')}"`);
     }
     return rows.join('\n');
   }
 
+  if (fmt === 'km') {
+    const macros = state.appTriggers.map(trigger => `
+  <dict>
+    <key>Name</key>
+    <string>${escapeXml(`DeckForge: ${trigger.app || 'App'}`)}</string>
+    <key>Bundle</key>
+    <string>${escapeXml(trigger.bundle || '')}</string>
+    <key>Profile</key>
+    <string>${escapeXml(trigger.profileId || 'main')}</string>
+  </dict>`).join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<array>\n${macros}\n</array>\n</plist>`;
+  }
+
+  if (fmt === 'ahk') {
+    const lines = ['#Requires AutoHotkey v2', '; DeckForge export', ''];
+    Object.entries(state.keys).forEach(([index, key]) => {
+      if (!key || key.action?.type !== 'hotkey' || !key.action?.value) return;
+      lines.push(`; Key ${index}: ${(key.label || '').replace(/\n/g, ' ')}`);
+      lines.push(`; ${key.action.value}`);
+      lines.push('');
+    });
+    state.appTriggers.forEach(trigger => {
+      lines.push(`; App trigger: ${trigger.app} -> ${trigger.profileId}`);
+    });
+    return lines.join('\n');
+  }
+
   const out = {
-    version: '1.0',
+    version: '2.0',
     generator: 'DeckForge',
     profile: profileName,
     device: { id: currentDevice, name: dev.name, cols: dev.cols, rows: dev.rows },
     keys: {},
+    appTriggers: state.appTriggers,
     wheelProfiles: state.wheelProfiles,
     activeWheelProfile: state.activeWheelProfile,
+    validationRun: Object.keys(validationResults).length ? validationResults : null,
     exportedAt: new Date().toISOString(),
   };
 
@@ -1799,6 +2313,11 @@ function renderExport() {
   const out = document.getElementById('jsonOutput');
   if (!out) return;
   const json = buildJSON();
+  const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
+  if (fmt === 'csv' || fmt === 'km' || fmt === 'ahk') {
+    out.textContent = json;
+    return;
+  }
   // Syntax highlight
   const hl = json
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -1821,8 +2340,23 @@ function copyJSON() {
 function downloadJSON() {
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
   const name = document.getElementById('exportProfileName')?.value || 'layout';
-  const ext = fmt === 'csv' ? 'csv' : fmt === 'streamdeck' ? 'streamDeckProfile' : 'json';
-  const blob = new Blob([buildJSON()], { type: 'application/json' });
+  const ext = fmt === 'csv'
+    ? 'csv'
+    : fmt === 'streamdeck'
+      ? 'streamDeckProfile'
+      : fmt === 'km'
+        ? 'kmmacros'
+        : fmt === 'ahk'
+          ? 'ahk'
+          : 'json';
+  const mime = fmt === 'csv'
+    ? 'text/csv'
+    : fmt === 'km'
+      ? 'text/xml'
+      : fmt === 'ahk'
+        ? 'text/plain'
+        : 'application/json';
+  const blob = new Blob([buildJSON()], { type: mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `${name.toLowerCase().replace(/\s+/g,'-')}.${ext}`;
@@ -1851,18 +2385,12 @@ function handleImport(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.keys) {
-        state.keys = {};
-        Object.entries(data.keys).forEach(([idx, k]) => {
-          if (k) state.keys[parseInt(idx)] = k;
-        });
-      }
-      if (data.device?.id) {
-        currentDevice = data.device.id;
-        document.getElementById('deviceSelect').value = currentDevice;
-      }
-      if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
-      if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
+      applyImportedState({
+        ...data,
+        device: data.device?.id || data.device,
+        profileName: data.profile || data.profileName,
+      });
+      document.getElementById('deviceSelect').value = currentDevice;
       renderGrid();
       renderSidebar();
       updateWheelSelect();
