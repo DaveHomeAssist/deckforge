@@ -2,806 +2,1742 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DeckForge — Stream Deck Profile Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stream Deck Layout Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
-  --bg: #0f0f12; --bg2: #1a1a22; --bg3: #24242e;
-  --border: #2e2e3a; --text: #e8e6f0; --text2: #9896a8;
-  --accent: #7c6cf0; --accent2: #a78bfa;
-  --green: #34d399; --red: #f87171; --sun: #fbbf24;
-  --radius: 8px;
-  /* Zone colors */
-  --z-dev: #7c6cf0; --z-av: #ef4444; --z-notion: #3b82f6;
-  --z-light: #fbbf24; --z-print: #f97316; --z-deploy: #34d399;
-  --z-music: #ec4899; --z-util: #6b7280;
+  --bg: #0a0a0a;
+  --s1: #111;
+  --s2: #181818;
+  --s3: #1f1f1f;
+  --border: #282828;
+  --border2: #333;
+  --green: #b8f542;
+  --green-bg: #0d1f04;
+  --green-border: #3a6010;
+  --text: #e2e2e2;
+  --muted: #666;
+  --dim: #3a3a3a;
+  --amber: #f5a623;
+  --amber-bg: #1f1505;
+  --blue: #42a8f5;
+  --blue-bg: #051520;
+  --coral: #f56b42;
+  --coral-bg: #1f0a05;
+  --purple: #c084fc;
+  --purple-bg: #100520;
+  --teal: #42f5c8;
+  --teal-bg: #051f18;
+  --pink: #f542a8;
+  --pink-bg: #1f0515;
+  --gray: #888;
+  --gray-bg: #141414;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --radius: 10px;
+  --key-size: 72px;
+  --key-gap: 7px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-button { font-family: inherit; cursor: pointer; }
-input, select, textarea { font-family: inherit; }
 
-.app { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; min-height: 100vh; }
-.header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
-.header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-.header h1 span { color: var(--accent); }
-.header-actions { display: flex; gap: 8px; align-items: center; }
-.device-tabs { display: flex; gap: 4px; }
-.device-tab { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; transition: all 0.15s; }
-.device-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.device-tab:hover:not(.active) { background: var(--bg3); color: var(--text); }
+html { height: 100%; }
+body {
+  background: var(--bg);
+  font-family: var(--font-mono);
+  color: var(--text);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas: "header header header" "sidebar main panel";
+}
 
-.main { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-.grid-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.grid { display: grid; gap: 6px; }
-.key { position: relative; width: 80px; height: 80px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; transition: all 0.15s; overflow: hidden; }
-.key:hover { border-color: var(--accent); transform: scale(1.04); }
-.key.selected { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,108,240,0.3); }
-.key.active::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-.key-icon { font-size: 24px; line-height: 1; }
-.key-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); text-align: center; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.key-pos { position: absolute; bottom: 3px; right: 5px; font-size: 8px; color: rgba(255,255,255,0.15); font-family: 'SF Mono', monospace; }
+/* ── HEADER ── */
+header {
+  grid-area: header;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
 
-.dial-row { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 4px; }
-.dial { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: all 0.15s; }
-.dial:hover { border-color: var(--accent); }
-.dial.selected { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,108,240,0.3); }
+.logo {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
 
-/* Right panel */
-.panel { border-left: 1px solid var(--border); background: var(--bg2); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-.panel-section { display: flex; flex-direction: column; gap: 8px; }
-.panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text2); }
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field label { font-size: 11px; font-weight: 600; color: var(--text2); }
-.field input, .field select, .field textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
-.field textarea { resize: vertical; min-height: 60px; }
+.logo span { color: var(--muted); font-weight: 600; }
 
-.zone-picker { display: flex; flex-wrap: wrap; gap: 4px; }
-.zone-chip { padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; opacity: 0.6; }
-.zone-chip.active { opacity: 1; border-color: rgba(255,255,255,0.3); box-shadow: 0 0 8px rgba(255,255,255,0.1); }
+.header-sep { width: 1px; height: 24px; background: var(--border); }
 
-.icon-row { display: flex; gap: 6px; align-items: center; }
-.icon-preview { width: 48px; height: 48px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px; }
-.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 120px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
-.emoji-btn { background: none; border: none; font-size: 18px; padding: 4px; border-radius: 4px; cursor: pointer; }
-.emoji-btn:hover { background: var(--bg3); }
+.model-tabs {
+  display: flex;
+  gap: 4px;
+}
 
-.toggle-row { display: flex; align-items: center; justify-content: space-between; }
-.toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
-.toggle.on { background: var(--accent); border-color: var(--accent); }
-.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
-.toggle.on::after { transform: translateX(16px); }
+.model-tab {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+
+.model-tab.active, .model-tab:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-bg);
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.btn:hover { border-color: var(--border2); color: var(--text); }
+
+.btn-primary {
+  background: var(--green);
+  border-color: var(--green);
+  color: #0a0a0a;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: #cefb6a;
+  border-color: #cefb6a;
+  color: #0a0a0a;
+}
+
+.btn-ghost {
+  border: none;
+  padding: 6px 10px;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* Zone palette */
+.zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zone-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+  user-select: none;
+}
+
+.zone-item:hover { background: var(--s2); border-color: var(--border); }
+.zone-item.selected { border-color: var(--green); background: var(--green-bg); }
+
+.zone-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.zone-name {
+  font-size: 11px;
+  color: var(--text);
+  flex: 1;
+}
+
+.zone-count {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* Key template list */
+.template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tpl-key {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: grab;
+  transition: all 0.12s;
+  padding: 6px;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.tpl-key:hover { border-color: var(--green); color: var(--green); transform: scale(0.96); }
+.tpl-key .tpl-icon { font-size: 16px; }
+
+/* Profile manager */
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.profile-item:hover { background: var(--s2); border-color: var(--border); }
+.profile-item.active { border-color: var(--green); background: var(--green-bg); }
+
+.profile-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.profile-dot.inactive { background: var(--dim); }
+
+.profile-name {
+  font-size: 11px;
+  flex: 1;
+}
+
+.profile-app-count {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* ── MAIN ── */
+.main {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+}
+
+/* Device selector */
+.device-bar {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.device-select {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 7px 12px;
+  cursor: pointer;
+  flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.device-select:focus { outline: none; border-color: var(--green); }
+
+.grid-info {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Deck container */
+.deck-wrap {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+}
+
+.deck-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.deck-grid {
+  display: grid;
+  gap: var(--key-gap);
+}
+
+/* Individual key */
+.key {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--s2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+  padding: 5px 3px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.key:hover { transform: scale(0.93); border-color: var(--border2); }
+.key.selected {
+  border-color: var(--green) !important;
+  box-shadow: 0 0 0 1px var(--green);
+}
+
+.key.empty { opacity: 0.35; }
+
+.key-icon { font-size: 16px; line-height: 1; pointer-events: none; }
+.key-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.25;
+  pointer-events: none;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.key-index {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  font-size: 6px;
+  color: rgba(255,255,255,0.15);
+  font-family: var(--font-mono);
+}
+
+.key-active-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* Zone colors */
+.kz-green  { background: #0d1f04 !important; border-color: #2a5010 !important; }
+.kz-green  .key-label { color: #b8f542; }
+.kz-amber  { background: #1a1002 !important; border-color: #5a3808 !important; }
+.kz-amber  .key-label { color: #f5a623; }
+.kz-blue   { background: #020f1f !important; border-color: #0d3558 !important; }
+.kz-blue   .key-label { color: #42a8f5; }
+.kz-coral  { background: #1a0802 !important; border-color: #5a2808 !important; }
+.kz-coral  .key-label { color: #f56b42; }
+.kz-purple { background: #0e0220 !important; border-color: #380e58 !important; }
+.kz-purple .key-label { color: #c084fc; }
+.kz-teal   { background: #021a10 !important; border-color: #085a32 !important; }
+.kz-teal   .key-label { color: #42f5c8; }
+.kz-pink   { background: #200214 !important; border-color: #5a0838 !important; }
+.kz-pink   .key-label { color: #f542a8; }
+.kz-dim    { background: #111 !important; border-color: #222 !important; }
+.kz-dim    .key-label { color: #555; }
+
+/* ── RIGHT PANEL ── */
+.panel {
+  grid-area: panel;
+  background: var(--s1);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Key editor form */
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.field input, .field textarea, .field select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  transition: border-color 0.15s;
+  resize: none;
+}
+
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+.field textarea { min-height: 52px; }
+
+.emoji-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.emoji-btn {
+  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.emoji-btn:hover { border-color: var(--green); transform: scale(0.9); }
+.emoji-btn.selected { border-color: var(--green); background: var(--green-bg); }
+
+.zone-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.zone-pill {
+  padding: 5px 4px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  font-size: 9px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.12s;
+  color: var(--muted);
+}
+
+.zone-pill:hover, .zone-pill.selected { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+
+/* Action editor */
+.action-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.action-type-badge {
+  font-size: 8px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.at-hotkey  { background: #0d1f04; color: #b8f542; border: 1px solid #2a5010; }
+.at-url     { background: #020f1f; color: #42a8f5; border: 1px solid #0d3558; }
+.at-shell   { background: #1a0802; color: #f56b42; border: 1px solid #5a2808; }
+.at-system  { background: #0e0220; color: #c084fc; border: 1px solid #380e58; }
+.at-obs     { background: #1a1002; color: #f5a623; border: 1px solid #5a3808; }
 
 /* Wheel editor */
-.wheel-section { border-top: 1px solid var(--border); padding-top: 14px; }
-.wheel-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.wheel-table th { text-align: left; padding: 4px 6px; color: var(--text2); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); }
-.wheel-table td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.wheel-table input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--text); font-size: 11px; }
-.wheel-profile-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
-.wheel-profile-tab { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; }
-.wheel-profile-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-/* Export section */
-.export-section { border-top: 1px solid var(--border); padding-top: 14px; }
-.btn { padding: 8px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; transition: all 0.15s; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent2); }
-.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
-.btn-secondary:hover { background: var(--bg); }
-.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.export-format { display: flex; gap: 4px; margin-bottom: 8px; }
-.format-tab { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; }
-.format-tab.active { background: var(--bg3); color: var(--text); border-color: var(--text2); }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--accent); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s ease; pointer-events: none; z-index: 100; }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* Anticipatory UX */
-.key.suggested { border-color: var(--accent) !important; animation: pulse-suggest 1.5s ease-in-out infinite; }
-@keyframes pulse-suggest { 0%,100% { box-shadow: 0 0 0 0 rgba(124,108,240,0); } 50% { box-shadow: 0 0 0 3px rgba(124,108,240,0.25); } }
-.key.zone-highlight { opacity: 1 !important; }
-.key.zone-dim { opacity: 0.35; }
-.recent-emojis { display: flex; gap: 2px; padding: 4px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; min-height: 32px; align-items: center; }
-.recent-label { font-size: 9px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 6px; white-space: nowrap; }
-.zone-suggest { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 1px dashed; margin-top: 4px; }
-.zone-suggest:hover { opacity: 1; }
-.quick-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.quick-act { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-.quick-act:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.next-key-bar { display: flex; gap: 6px; align-items: center; padding: 8px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; }
-.next-key-bar span { font-size: 11px; color: var(--text2); }
-.next-key-bar button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-size: 11px; font-weight: 600; cursor: pointer; }
-.next-key-bar button:hover { background: var(--accent); color: #fff; }
-.autosave-badge { font-size: 10px; color: var(--green); display: flex; align-items: center; gap: 4px; }
-.restore-banner { padding: 10px 14px; background: var(--accent)15; border: 1px solid var(--accent)40; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.restore-banner span { font-size: 12px; color: var(--text2); }
-
-/* Mobile */
-@media (max-width: 800px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-  .panel { border-left: none; border-top: 1px solid var(--border); max-height: 50vh; overflow-y: auto; }
-  .key { width: 64px; height: 64px; }
-  .key-icon { font-size: 20px; }
-  .key-label { font-size: 8px; }
-  .grid { gap: 4px; }
-  .header { flex-wrap: wrap; gap: 8px; }
-  .device-tabs { flex-wrap: wrap; }
+.wheel-bind-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 8px;
 }
-@media (max-width: 480px) {
-  .key { width: 52px; height: 52px; }
-  .key-icon { font-size: 18px; }
-  .key-label { font-size: 7px; max-width: 48px; }
-  .main { padding: 10px; }
-  .panel { padding: 12px; }
-  .header { padding: 10px 12px; }
-  .header h1 { font-size: 15px; }
+
+.wheel-dir-label {
+  font-size: 10px;
+  padding-top: 7px;
+  color: var(--muted);
+}
+
+/* JSON Output */
+.json-output {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #7a9b5a;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  line-height: 1.6;
+  white-space: pre;
+  word-break: break-all;
+  cursor: text;
+}
+
+.json-output .jk { color: #5a8fcc; }
+.json-output .js { color: #b8a050; }
+.json-output .jn { color: #c084fc; }
+.json-output .jb { color: #f5a623; }
+
+.copy-confirm {
+  font-size: 10px;
+  color: var(--green);
+  opacity: 0;
+  transition: opacity 0.3s;
+  margin-left: 8px;
+}
+
+.copy-confirm.show { opacity: 1; }
+
+/* Empty state */
+.no-key-selected {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.no-key-icon { font-size: 28px; margin-bottom: 10px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+/* Tabs inside panel */
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-tab {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+
+.panel-tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--green);
+  color: #0a0a0a;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Drag highlight */
+.key.drag-over {
+  border-color: var(--green) !important;
+  background: var(--green-bg) !important;
+}
+
+/* ── SIDEBAR TOGGLE (hidden by default on desktop) ── */
+.sidebar-toggle { display: none; }
+
+/* ── PANEL DRAG HANDLE (hidden by default on desktop) ── */
+.panel-drag-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.panel-drag-handle .drag-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+}
+.panel-drag-handle .panel-close-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── SAFE AREA INSETS ── */
+@supports (padding: env(safe-area-inset-top)) {
+  header {
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  .panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ── RESPONSIVE: TABLET (max-width: 960px) ── */
+@media (max-width: 960px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "header"
+      "sidebar"
+      "main";
+  }
+
+  .sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-section {
+    display: inline-flex;
+    flex-direction: column;
+    min-width: 200px;
+    flex-shrink: 0;
+    padding: 10px 12px;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+  }
+
+  .panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    border-left: none;
+    z-index: 90;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .panel-drag-handle {
+    display: flex;
+  }
+
+  .panel.panel-closed {
+    transform: translateY(calc(100% - 44px));
+  }
+
+  header {
+    flex-wrap: wrap;
+    gap: 8px;
+    height: auto;
+    padding: 10px 16px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .model-tabs {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── RESPONSIVE: PHONE (max-width: 600px) ── */
+@media (max-width: 600px) {
+  .sidebar {
+    display: none;
+  }
+
+  .sidebar.open {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--s1);
+  }
+
+  .sidebar.open .sidebar-section {
+    display: flex;
+    min-width: unset;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    padding: 6px 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header"
+      "main";
+  }
+
+  .deck-wrap {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  :root {
+    --key-size: 56px;
+    --key-gap: 5px;
+  }
+
+  .key-label { font-size: 6px; }
+  .key-icon { font-size: 14px; }
+
+  .header-actions { gap: 4px; }
+
+  .btn {
+    padding: 5px 10px;
+    font-size: 9px;
+  }
+
+  .panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 70vh;
+    z-index: 100;
+    border-radius: 16px 16px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .panel-drag-handle {
+    display: flex;
+  }
+
+  .panel.panel-closed {
+    transform: translateY(calc(100% - 44px));
+  }
+
+  .main {
+    padding: 16px;
+    padding-bottom: 120px;
+  }
+}
+
+/* ── TOUCH TARGETS (mobile) ── */
+@media (max-width: 960px) {
+  .key {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .zone-item {
+    min-height: 44px;
+  }
+
+  .profile-item {
+    min-height: 44px;
+  }
+
+  .tpl-key {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .emoji-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .zone-pill {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .panel-tab {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .model-tab {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="header">
-    <h1><span>Deck</span>Forge</h1>
-    <div class="header-actions">
-      <div class="device-tabs" id="deviceTabs"></div>
+
+<!-- HEADER -->
+<header>
+  <button class="btn sidebar-toggle" id="sidebarToggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle sidebar">&#9776;</button>
+  <div class="logo">DeckForge <span>/ Layout Generator</span></div>
+  <div class="header-sep"></div>
+  <div class="model-tabs" id="modelTabs">
+    <button class="model-tab active" data-model="xl">XL (32)</button>
+    <button class="model-tab" data-model="mk2">MK.2 (15)</button>
+    <button class="model-tab" data-model="mini">Mini (6)</button>
+    <button class="model-tab" data-model="plus">+ (8)</button>
+  </div>
+  <div class="header-sep"></div>
+  <div style="font-size:9px;color:var(--muted)" id="selectionInfo">click a key to edit</div>
+  <div class="header-actions">
+    <button class="btn" onclick="clearSelected()">clear key</button>
+    <button class="btn" onclick="clearAll()">clear all</button>
+    <button class="btn btn-primary" onclick="exportJSON()">export JSON</button>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Profiles</div>
+    <div class="profile-list" id="profileList"></div>
+    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addProfile()">+ new profile</button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Zone Colors</div>
+    <div class="zone-list" id="zoneList"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Quick Templates</div>
+    <div class="template-grid" id="templateGrid"></div>
+  </div>
+
+  <div class="sidebar-section" style="flex:1">
+    <div class="sidebar-title">Wheel Profiles</div>
+    <div id="wheelSidebar"></div>
+    <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="addWheelProfile()">+ wheel profile</button>
+  </div>
+
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="device-bar">
+    <select class="device-select" id="deviceSelect" onchange="setDevice(this.value)">
+      <option value="xl">Stream Deck XL — 8×4 (32 keys)</option>
+      <option value="mk2">Stream Deck MK.2 — 5×3 (15 keys)</option>
+      <option value="mini">Stream Deck Mini — 3×2 (6 keys)</option>
+      <option value="plus">Stream Deck + — 4×2 (8 keys + dial)</option>
+    </select>
+    <div class="grid-info" id="gridInfo">8 cols × 4 rows</div>
+  </div>
+
+  <div class="deck-wrap">
+    <div class="deck-label" id="deckLabel">Stream Deck XL</div>
+    <div class="deck-grid" id="deckGrid"></div>
+  </div>
+
+  <!-- Wheel section for SD+ -->
+  <div id="dialSection" style="display:none;width:100%;max-width:720px">
+    <div class="deck-wrap">
+      <div class="deck-label">Encoder Dials</div>
+      <div style="display:flex;gap:10px" id="dialRow"></div>
     </div>
   </div>
-  <div class="main" id="main">
-    <div class="grid-container">
-      <div class="grid" id="grid"></div>
-      <div class="dial-row" id="dialRow" style="display:none;"></div>
+
+  <!-- Legend -->
+  <div style="display:flex;flex-wrap:wrap;gap:10px;width:100%;max-width:720px" id="legendBar"></div>
+
+</main>
+
+<!-- RIGHT PANEL -->
+<aside class="panel" id="panelAside">
+  <div class="panel-drag-handle" id="panelDragHandle" onclick="document.getElementById('panelAside').classList.toggle('panel-closed')">
+    <div class="drag-bar"></div>
+    <span class="panel-close-label">close</span>
+  </div>
+
+  <div class="panel-tabs">
+    <button class="panel-tab active" data-tab="edit">Edit Key</button>
+    <button class="panel-tab" data-tab="wheel">Wheel</button>
+    <button class="panel-tab" data-tab="export">Export</button>
+  </div>
+
+  <!-- EDIT TAB -->
+  <div class="tab-content active" id="tab-edit">
+    <div id="noKeyMsg" class="no-key-selected">
+      <div class="no-key-icon">🎛️</div>
+      <div>Select a key on the grid<br>to edit its properties</div>
     </div>
-    <div class="wheel-section" id="wheelSection">
-      <div class="panel-title" style="margin-bottom:8px;">Logitech Options+ Wheel Profiles</div>
-      <div class="wheel-profile-tabs" id="wheelProfileTabs"></div>
-      <table class="wheel-table" id="wheelTable">
-        <thead><tr><th>App</th><th>Scroll Up</th><th>Scroll Down</th><th>Click</th></tr></thead>
-        <tbody id="wheelBody"></tbody>
-      </table>
-      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addWheelRow()">+ Add App</button>
+    <div id="keyEditor" style="display:none">
+      <div class="panel-section">
+        <div class="panel-title">Key — <span id="keyIndexLabel">0</span></div>
+        <div class="field">
+          <label>Icon (emoji)</label>
+          <input type="text" id="fIcon" placeholder="🔴" maxlength="4" oninput="updateKey()">
+          <div class="emoji-row" id="emojiRow"></div>
+        </div>
+        <div class="field">
+          <label>Label</label>
+          <input type="text" id="fLabel" placeholder="Key name" maxlength="20" oninput="updateKey()">
+        </div>
+        <div class="field">
+          <label>Zone Color</label>
+          <div class="zone-picker" id="zonePicker"></div>
+        </div>
+        <div class="field">
+          <label>Mark Active</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="fActive" onchange="updateKey()" style="width:auto;accent-color:var(--green)">
+            <span style="font-size:10px;color:var(--muted)">shows green indicator dot</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-title">Action</div>
+        <div class="field">
+          <label>Action Type</label>
+          <select id="fActionType" onchange="updateKey()">
+            <option value="hotkey">Hotkey</option>
+            <option value="url">Open URL</option>
+            <option value="shell">Shell Command</option>
+            <option value="system">System (lock, sleep…)</option>
+            <option value="obs">OBS WebSocket</option>
+            <option value="vmix">vMix API</option>
+            <option value="applescript">AppleScript</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Action Value</label>
+          <textarea id="fActionValue" placeholder="e.g. cmd+shift+5" oninput="updateKey()"></textarea>
+        </div>
+        <div class="field">
+          <label>Description / Notes</label>
+          <textarea id="fDescription" placeholder="What does this key do?" oninput="updateKey()"></textarea>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="panel" id="panel">
+
+  <!-- WHEEL TAB -->
+  <div class="tab-content" id="tab-wheel">
     <div class="panel-section">
-      <div class="panel-title">Key Editor</div>
-      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p>
+      <div class="panel-title">Logitech Options Wheel</div>
+      <div class="field">
+        <label>Active Profile</label>
+        <select id="wheelProfileSelect" onchange="loadWheelProfile(this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;width:100%">
+        </select>
+      </div>
+    </div>
+    <div class="panel-section" id="wheelEditorSection">
+      <div class="panel-title">Bindings</div>
+      <div id="wheelBindings"></div>
+      <button class="btn" style="width:100%;margin-top:8px;font-size:10px" onclick="saveWheelProfile()">save profile</button>
     </div>
   </div>
-</div>
+
+  <!-- EXPORT TAB -->
+  <div class="tab-content" id="tab-export">
+    <div class="panel-section">
+      <div class="panel-title">Profile Name</div>
+      <div class="field">
+        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1">
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">
+        JSON Output
+        <button class="btn btn-ghost" style="float:right;font-size:9px;padding:3px 8px;margin-top:-2px" onclick="copyJSON()">copy</button>
+        <span class="copy-confirm" id="copyConfirm">copied!</span>
+      </div>
+      <div class="json-output" id="jsonOutput"></div>
+    </div>
+    <div class="panel-section">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="downloadJSON()">download .json</button>
+      <button class="btn" style="width:100%" onclick="importJSON()">import .json</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Export Format</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="radio" name="exportFmt" value="deckforge" checked style="accent-color:var(--green)"> DeckForge native
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="radio" name="exportFmt" value="streamdeck"> Stream Deck profile (.streamDeckProfile)
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="radio" name="exportFmt" value="csv"> CSV (for docs/sharing)
+        </label>
+      </div>
+    </div>
+  </div>
+
+</aside>
+
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Data ─────────────────────────────────────────────────────────────────────
+// ── XSS UTILS ─────────────────────────────────────────────────────
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── STATE ──────────────────────────────────────────────────────────
+const DEVICES = {
+  xl:   { cols: 8, rows: 4, name: 'Stream Deck XL',    hasDial: false },
+  mk2:  { cols: 5, rows: 3, name: 'Stream Deck MK.2',  hasDial: false },
+  mini: { cols: 3, rows: 2, name: 'Stream Deck Mini',  hasDial: false },
+  plus: { cols: 4, rows: 2, name: 'Stream Deck +',     hasDial: true, dials: 4 },
+};
 
 const ZONES = [
-  { id: 'dev',     label: 'Dev / PLB',       color: '#7c6cf0' },
-  { id: 'av',      label: 'Production AV',   color: '#ef4444' },
-  { id: 'notion',  label: 'Notion / OS',     color: '#3b82f6' },
-  { id: 'light',   label: 'Lighting',        color: '#fbbf24' },
-  { id: 'print',   label: '3D Print',        color: '#f97316' },
-  { id: 'deploy',  label: 'Deploy',          color: '#34d399' },
-  { id: 'music',   label: 'Music / SAP',     color: '#ec4899' },
-  { id: 'util',    label: 'Utility',         color: '#6b7280' },
+  { id: 'green',  label: 'Dev / PLB',      color: '#b8f542', bg: '#0d1f04', border: '#2a5010' },
+  { id: 'amber',  label: 'Production AV',  color: '#f5a623', bg: '#1a1002', border: '#5a3808' },
+  { id: 'blue',   label: 'Notion / OS',    color: '#42a8f5', bg: '#020f1f', border: '#0d3558' },
+  { id: 'coral',  label: 'Lighting / AV',  color: '#f56b42', bg: '#1a0802', border: '#5a2808' },
+  { id: 'purple', label: '3D Print',       color: '#c084fc', bg: '#0e0220', border: '#380e58' },
+  { id: 'teal',   label: 'Deploy',         color: '#42f5c8', bg: '#021a10', border: '#085a32' },
+  { id: 'pink',   label: 'Music / SAP',    color: '#f542a8', bg: '#200214', border: '#5a0838' },
+  { id: 'dim',    label: 'Utility',        color: '#555',    bg: '#111',    border: '#222' },
 ];
 
-const ACTION_TYPES = ['None', 'Hotkey', 'Open URL', 'Shell Command', 'System', 'OBS WebSocket', 'vMix API', 'AppleScript'];
+const QUICK_EMOJIS = ['⚗️','🏗️','📦','🧠','🤖','📋','🔁','📡','📓','💬','🎯','🗂️','🏛️','🏠','📐','⚙️','🎬','🎙️','📷','🎚️','🔴','📺','💡','🎛️','🖨️','📏','⏸️','🌐','💿','🔒','🌀','⚡','🎵','🎤','🎸','🥁','🎹','📊','📈','🔧','🔑','📧','💻','🖥️','🖱️'];
 
-const DEVICES = [
-  { id: 'xl',   label: 'XL',       cols: 8, rows: 4, dials: 0 },
-  { id: 'mk2',  label: 'MK.2',     cols: 5, rows: 3, dials: 0 },
-  { id: 'mini', label: 'Mini',      cols: 3, rows: 2, dials: 0 },
-  { id: 'plus', label: '+ (Plus)',  cols: 4, rows: 2, dials: 4 },
-];
+const WHEEL_APPS = ['VS Code / Cursor','OBS Studio','vMix','Bambu Studio','Rekordbox','Notion','Browser','System'];
 
-const EMOJIS = [
-  '🖥️','🎬','🎤','🎧','💡','🔴','🟢','🔵','📺','🎛️','📡','🎥',
-  '⚙️','🔧','🛠️','📦','🚀','🌐','📝','📋','🗂️','💾','🔒','🔑',
-  '🎨','🖌️','🎵','🎹','🪄','✂️','📐','🏗️','🖨️','📸','🔍','👁️',
-  '⏯️','⏸️','⏹️','⏺️','⏭️','⏮️','🔊','🔇','🎚️','🔔','💬','📢',
-  '☀️','🌙','🔦','💡','🌈','🔥','❄️','⚡','🏠','🍃','🌸','🎯',
-];
+let currentDevice = 'xl';
+let selectedKey = null;
+let selectedZone = 'green';
 
-// Pre-seeded XL layout (32 keys)
-const SEED_KEYS = [
-  { icon:'🖥️', label:'VS Code',     zone:'dev',    action:'Hotkey', value:'Cmd+Space → code', active:true, desc:'Launch VS Code' },
-  { icon:'🔧', label:'Terminal',     zone:'dev',    action:'Hotkey', value:'Cmd+Space → term', active:true, desc:'Open terminal' },
-  { icon:'🌐', label:'Claude',       zone:'dev',    action:'Open URL', value:'https://claude.ai', active:true, desc:'Claude AI chat' },
-  { icon:'📋', label:'Prompt Lab',   zone:'dev',    action:'Open URL', value:'https://prompt-lab-tawny.vercel.app/app/', active:true, desc:'Open Prompt Lab' },
-  { icon:'🚀', label:'Deploy',       zone:'deploy', action:'Shell Command', value:'git push origin main', active:true, desc:'Push to main' },
-  { icon:'📦', label:'Build',        zone:'deploy', action:'Shell Command', value:'npm run build', active:true, desc:'Run build' },
-  { icon:'🔍', label:'Lighthouse',   zone:'deploy', action:'Open URL', value:'https://pagespeed.web.dev/', active:false, desc:'PageSpeed test' },
-  { icon:'📡', label:'GitHub',       zone:'deploy', action:'Open URL', value:'https://github.com/DaveHomeAssist', active:true, desc:'GitHub profile' },
-  { icon:'🎬', label:'OBS',          zone:'av',     action:'System', value:'open -a OBS', active:true, desc:'Launch OBS' },
-  { icon:'📺', label:'Scene 1',      zone:'av',     action:'OBS WebSocket', value:'SetCurrentScene:Main', active:true, desc:'Switch to Main scene' },
-  { icon:'🎤', label:'Mic Toggle',   zone:'av',     action:'OBS WebSocket', value:'ToggleMute:Mic', active:true, desc:'Toggle microphone' },
-  { icon:'📸', label:'Screenshot',   zone:'av',     action:'OBS WebSocket', value:'TakeScreenshot', active:false, desc:'Capture screenshot' },
-  { icon:'🎥', label:'vMix',         zone:'av',     action:'System', value:'open -a vMix', active:false, desc:'Launch vMix' },
-  { icon:'⏺️', label:'Record',       zone:'av',     action:'OBS WebSocket', value:'StartRecord', active:true, desc:'Start recording' },
-  { icon:'⏹️', label:'Stop Rec',     zone:'av',     action:'OBS WebSocket', value:'StopRecord', active:false, desc:'Stop recording' },
-  { icon:'⏯️', label:'Stream',       zone:'av',     action:'OBS WebSocket', value:'StartStream', active:false, desc:'Start streaming' },
-  { icon:'📝', label:'Notion',       zone:'notion', action:'Open URL', value:'https://notion.so', active:true, desc:'Open Notion' },
-  { icon:'🗂️', label:'Finder',       zone:'notion', action:'Hotkey', value:'Cmd+Space → finder', active:true, desc:'Open Finder' },
-  { icon:'⚙️', label:'Settings',     zone:'notion', action:'System', value:'open -a "System Settings"', active:false, desc:'System Preferences' },
-  { icon:'🔒', label:'Lock',         zone:'notion', action:'System', value:'pmset displaysleepnow', active:true, desc:'Lock screen' },
-  { icon:'💡', label:'Lights On',    zone:'light',  action:'Hotkey', value:'Ctrl+Shift+L', active:true, desc:'Key lights on' },
-  { icon:'🌙', label:'Lights Off',   zone:'light',  action:'Hotkey', value:'Ctrl+Shift+K', active:false, desc:'Key lights off' },
-  { icon:'☀️', label:'Bright+',      zone:'light',  action:'AppleScript', value:'tell app "Elgato Control Center" to set brightness to 100', active:false, desc:'Max brightness' },
-  { icon:'🔦', label:'Bright-',      zone:'light',  action:'AppleScript', value:'tell app "Elgato Control Center" to set brightness to 30', active:false, desc:'Low brightness' },
-  { icon:'🖨️', label:'Bambu',        zone:'print',  action:'Open URL', value:'https://bambulab.com', active:false, desc:'Bambu Lab dashboard' },
-  { icon:'🏗️', label:'Orca',         zone:'print',  action:'System', value:'open -a OrcaSlicer', active:false, desc:'Launch OrcaSlicer' },
-  { icon:'🎵', label:'Music',        zone:'music',  action:'System', value:'open -a Music', active:true, desc:'Apple Music' },
-  { icon:'⏭️', label:'Next',         zone:'music',  action:'Hotkey', value:'Media Next', active:true, desc:'Next track' },
-  { icon:'⏮️', label:'Prev',         zone:'music',  action:'Hotkey', value:'Media Prev', active:false, desc:'Previous track' },
-  { icon:'🔊', label:'Vol Up',       zone:'util',   action:'Hotkey', value:'Volume Up', active:false, desc:'Volume up' },
-  { icon:'🔇', label:'Mute',         zone:'util',   action:'Hotkey', value:'Mute', active:true, desc:'Toggle mute' },
-  { icon:'🎯', label:'DND',          zone:'util',   action:'AppleScript', value:'tell app "System Events" to toggle do not disturb', active:false, desc:'Toggle Do Not Disturb' },
-];
-
-const SEED_WHEEL = [
-  {
-    id: 'dev', label: 'Dev',
-    bindings: [
-      { app: 'VS Code',  up: 'Cmd+Shift+]', down: 'Cmd+Shift+[', click: 'Cmd+P' },
-      { app: 'Terminal',  up: 'Cmd+Shift+}', down: 'Cmd+Shift+{', click: 'Cmd+T' },
-      { app: 'Chrome',    up: 'Ctrl+Tab',     down: 'Ctrl+Shift+Tab', click: 'Cmd+L' },
-    ]
-  },
-  {
-    id: 'production', label: 'Production',
-    bindings: [
-      { app: 'OBS',    up: 'Ctrl+Up',     down: 'Ctrl+Down',   click: 'Space' },
-      { app: 'vMix',   up: 'Ctrl+Right',  down: 'Ctrl+Left',   click: 'Enter' },
-    ]
-  },
-  {
-    id: 'bambu', label: 'Bambu',
-    bindings: [
-      { app: 'OrcaSlicer', up: 'Cmd+=', down: 'Cmd+-', click: 'Cmd+G' },
-    ]
-  },
-];
-
-// ── LocalStorage Persistence ─────────────────────────────────────────────────
-
-const LS_KEY = 'deckforge_state';
-const LS_PREFS = 'deckforge_prefs';
-
-function loadPrefs() {
-  try { return JSON.parse(localStorage.getItem(LS_PREFS)) || {}; } catch { return {}; }
-}
-function savePrefs(patch) {
-  const prefs = { ...loadPrefs(), ...patch };
-  localStorage.setItem(LS_PREFS, JSON.stringify(prefs));
-  return prefs;
-}
-function autoSave() {
-  localStorage.setItem(LS_KEY, JSON.stringify({
-    device: state.device, keys: state.keys,
-    wheelProfiles: state.wheelProfiles, activeWheelProfile: state.activeWheelProfile,
-    exportFormat: state.exportFormat, savedAt: Date.now(),
-  }));
-}
-function loadAutoSave() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; }
-}
-
-// ── Anticipatory Engine ──────────────────────────────────────────────────────
-
-// Action → likely zone mapping
-const ACTION_ZONE_HINTS = {
-  'OBS WebSocket': 'av', 'vMix API': 'av',
-  'Shell Command': 'dev', 'Hotkey': 'dev',
-  'Open URL': 'notion', 'System': 'notion',
-  'AppleScript': 'util',
-};
-
-function getZoneSuggestion(actionType, currentZone) {
-  const hint = ACTION_ZONE_HINTS[actionType];
-  if (hint && hint !== currentZone) return hint;
-  return null;
-}
-
-function getRecentEmojis() {
-  const prefs = loadPrefs();
-  return (prefs.recentEmojis || []).slice(0, 12);
-}
-
-function trackEmoji(emoji) {
-  const prefs = loadPrefs();
-  let recent = prefs.recentEmojis || [];
-  recent = [emoji, ...recent.filter(e => e !== emoji)].slice(0, 16);
-  savePrefs({ recentEmojis: recent });
-}
-
-function getAdjacentIndices(idx) {
-  const d = DEVICES.find(d => d.id === state.device);
-  const row = Math.floor(idx / d.cols), col = idx % d.cols;
-  const adj = [];
-  if (col < d.cols - 1) adj.push(idx + 1);       // right
-  if (row < d.rows - 1) adj.push(idx + d.cols);   // below
-  if (col > 0) adj.push(idx - 1);                 // left
-  if (row > 0) adj.push(idx - d.cols);             // above
-  return adj;
-}
-
-function getSuggestedNextKey() {
-  if (state.selectedIdx === null) return null;
-  const adj = getAdjacentIndices(state.selectedIdx);
-  // Prefer empty adjacent keys, then right/below
-  const empty = adj.filter(i => !state.keys[i]?.label && !state.keys[i]?.icon);
-  return empty.length > 0 ? empty[0] : (adj[0] ?? null);
-}
-
-function getEmptyKeyCount() {
-  return state.keys.filter(k => !k.label && !k.icon).length;
-}
-
-function getZoneStats() {
-  const counts = {};
-  for (const k of state.keys) {
-    if (k.label || k.icon) counts[k.zone] = (counts[k.zone] || 0) + 1;
-  }
-  return counts;
-}
-
-// ── State ────────────────────────────────────────────────────────────────────
-
+// ── DATA ──────────────────────────────────────────────────────────
 let state = {
+  profileName: 'DaveDeck v1',
   device: 'xl',
-  keys: [],
-  selectedIdx: null,
-  wheelProfiles: JSON.parse(JSON.stringify(SEED_WHEEL)),
+  profiles: [
+    { id: 'main', name: 'Main', active: true }
+  ],
+  keys: {},
+  wheelProfiles: [
+    {
+      id: 'dev', name: 'Dev', bindings: [
+        { app: 'VS Code / Cursor', up: 'Font size +', down: 'Font size –', click: 'Toggle terminal' },
+        { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'DevTools' },
+        { app: 'Notion', up: 'Next DB entry', down: 'Prev DB entry', click: 'Open page' },
+        { app: 'System', up: 'Clipboard prev', down: 'Clipboard next', click: 'Paste' },
+      ]
+    },
+    {
+      id: 'prod', name: 'Production', bindings: [
+        { app: 'OBS Studio', up: 'Next scene', down: 'Prev scene', click: 'Toggle record' },
+        { app: 'vMix', up: 'T-bar +5%', down: 'T-bar –5%', click: 'Cut to program' },
+        { app: 'System', up: 'Master vol +', down: 'Master vol –', click: 'Mute toggle' },
+        { app: 'Browser', up: 'Zoom in', down: 'Zoom out', click: 'Refresh' },
+      ]
+    },
+    {
+      id: 'bambu', name: 'Bambu', bindings: [
+        { app: 'Bambu Studio', up: 'Layer +1', down: 'Layer –1', click: 'Toggle layer view' },
+        { app: 'Bambu Studio', up: 'Speed +10%', down: 'Speed –10%', click: 'Pause print' },
+        { app: 'System', up: 'Vol +', down: 'Vol –', click: 'Mute' },
+        { app: 'Browser', up: 'Tab right', down: 'Tab left', click: 'Close tab' },
+      ]
+    },
+  ],
   activeWheelProfile: 'dev',
-  exportFormat: 'deckforge',
-  showRestore: false,
 };
 
-function initKeys() {
-  const d = DEVICES.find(d => d.id === state.device);
-  const total = d.cols * d.rows;
-  state.keys = [];
-  for (let i = 0; i < total; i++) {
-    const seed = SEED_KEYS[i] || {};
-    state.keys.push({
-      icon: seed.icon || '',
-      label: seed.label || '',
-      zone: seed.zone || 'util',
-      action: seed.action || 'None',
-      value: seed.value || '',
-      active: seed.active ?? false,
-      desc: seed.desc || '',
-    });
-  }
-  state.selectedIdx = null;
-}
+// Seed default keys for XL
+const DEFAULT_KEYS_XL = [
+  { i:0,  icon:'⚗️', label:'PLB\nDev',     zone:'green',  active:true,  action:{type:'shell',value:'cd ~/Desktop/Code/10-active-projects/promptlab && npm run dev'}, desc:'PromptLab dev server' },
+  { i:1,  icon:'🏗️', label:'PLB\nBuild',   zone:'green',  active:false, action:{type:'shell',value:'npm run build'},  desc:'Vite production build' },
+  { i:2,  icon:'📦', label:'PLB\nPack',    zone:'green',  active:false, action:{type:'shell',value:'./scripts/pack.sh'}, desc:'Zip extension' },
+  { i:3,  icon:'🧠', label:'Claude\nAgent',zone:'green',  active:true,  action:{type:'url',value:'https://claude.ai'}, desc:'Claude architecture session' },
+  { i:4,  icon:'🤖', label:'Codex\nAgent', zone:'green',  active:false, action:{type:'shell',value:'codex'}, desc:'Codex CLI agent' },
+  { i:5,  icon:'📋', label:'CLAUDE\n.md',  zone:'green',  active:false, action:{type:'shell',value:'code ~/Desktop/Code/CLAUDE.md'}, desc:'Open governance doc' },
+  { i:6,  icon:'🔁', label:'Sync\nDell',   zone:'teal',   active:false, action:{type:'shell',value:'rsync -avz --progress ./ dave@dell-server:~/deploys/'}, desc:'rsync over Tailscale' },
+  { i:7,  icon:'📡', label:'Deploy\nLive', zone:'teal',   active:true,  action:{type:'shell',value:'netlify deploy --prod'}, desc:'Netlify production deploy' },
+  { i:8,  icon:'📓', label:'Sprint\nDB',   zone:'blue',   active:false, action:{type:'url',value:'notion://sprint-tracker'}, desc:'Sprint Tracker Notion DB' },
+  { i:9,  icon:'💬', label:'Prompt\nKeep', zone:'blue',   active:false, action:{type:'url',value:'notion://prompts'}, desc:'Prompt Keeper agent' },
+  { i:10, icon:'🎯', label:'Garden\nOS',   zone:'blue',   active:false, action:{type:'shell',value:'code ~/Desktop/Code/10-active-projects/garden-os'}, desc:'Garden OS repo' },
+  { i:11, icon:'🗂️', label:'Work\nTriage', zone:'blue',   active:false, action:{type:'url',value:'notion://work-triage'}, desc:'Work doc triage DB' },
+  { i:12, icon:'🏛️', label:'Union\nHub',   zone:'blue',   active:false, action:{type:'url',value:'notion://union-hub'}, desc:'IATSE Union Hub' },
+  { i:13, icon:'🏠', label:'Home\nPage',   zone:'blue',   active:false, action:{type:'url',value:'notion://home'}, desc:'Notion HOME dashboard' },
+  { i:14, icon:'📐', label:'ideas\n.md',   zone:'dim',    active:false, action:{type:'shell',value:'code ~/Desktop/Code/ideas.md'}, desc:'Feature ideas backlog' },
+  { i:15, icon:'⚙️', label:'Home\nAssist', zone:'dim',    active:false, action:{type:'url',value:'http://homeassistant.local:8123'}, desc:'Home Assistant' },
+  { i:16, icon:'🎬', label:'OBS\nScene+',  zone:'amber',  active:false, action:{type:'hotkey',value:'ctrl+shift+right'}, desc:'Next OBS scene' },
+  { i:17, icon:'🎬', label:'OBS\nScene-',  zone:'amber',  active:false, action:{type:'hotkey',value:'ctrl+shift+left'}, desc:'Prev OBS scene' },
+  { i:18, icon:'🎙️', label:'Mic\nMute',   zone:'amber',  active:true,  action:{type:'hotkey',value:'cmd+shift+m'}, desc:'System mic mute toggle' },
+  { i:19, icon:'📷', label:'Cam\nToggle',  zone:'amber',  active:false, action:{type:'hotkey',value:'cmd+shift+v'}, desc:'Camera toggle' },
+  { i:20, icon:'🎚️', label:'T-Bar\nReset',zone:'amber',  active:false, action:{type:'url',value:'http://localhost:8088/api/?Function=SetPosition&Input=Transition&Value=0'}, desc:'vMix T-bar to 0' },
+  { i:21, icon:'🔴', label:'Record\nOBS',  zone:'amber',  active:false, action:{type:'hotkey',value:'ctrl+shift+r'}, desc:'OBS record toggle' },
+  { i:22, icon:'📺', label:'DaveIn\n4K',   zone:'amber',  active:false, action:{type:'url',value:'https://studio.youtube.com'}, desc:'YouTube Studio' },
+  { i:23, icon:'💡', label:'GrandMA\nFire',zone:'coral',  active:false, action:{type:'shell',value:'oscsend localhost 8000 /ma/cmd s "Go+"'}, desc:'GrandMA3 OSC cue' },
+  { i:24, icon:'🖨️', label:'Bambu\nStatus',zone:'purple', active:false, action:{type:'url',value:'https://makerworld.com/en/studio'}, desc:'Bambu Studio status' },
+  { i:25, icon:'📏', label:'Layer\nScrub', zone:'purple', active:false, action:{type:'none',value:''}, desc:'Wheel action — layer preview' },
+  { i:26, icon:'⏸️', label:'Print\nPause', zone:'purple', active:false, action:{type:'url',value:'http://bambu-a1.local/api/pause'}, desc:'Pause active print' },
+  { i:27, icon:'🎛️', label:'Lemon\nDash',  zone:'dim',    active:false, action:{type:'url',value:'https://app.lemonsqueezy.com'}, desc:'Lemon Squeezy store' },
+  { i:28, icon:'🌐', label:'Digital\nFP',  zone:'dim',    active:false, action:{type:'url',value:'https://digitalfootprints.io'}, desc:'Freelance site' },
+  { i:29, icon:'💿', label:'SAP\nLinks',   zone:'pink',   active:false, action:{type:'url',value:'https://linktr.ee/sap_music'}, desc:'SAP artist links' },
+  { i:30, icon:'🔒', label:'Lock\nScreen', zone:'dim',    active:false, action:{type:'hotkey',value:'ctrl+cmd+q'}, desc:'macOS screen lock' },
+  { i:31, icon:'🌀', label:'Restart\nDock',zone:'dim',    active:false, action:{type:'shell',value:'killall Dock'}, desc:'Restart macOS Dock' },
+];
 
-// ── Render ────────────────────────────────────────────────────────────────────
+DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
 
-function render() {
-  renderDeviceTabs();
+// ── INIT ──────────────────────────────────────────────────────────
+function init() {
+  renderSidebar();
   renderGrid();
-  renderDialRow();
-  renderPanel();
-  renderWheel();
-  autoSave();
+  renderPanelTabs();
+  renderExport();
+  updateWheelSelect();
+  renderWheelBindings(state.activeWheelProfile);
 }
 
-function renderDeviceTabs() {
-  const el = document.getElementById('deviceTabs');
-  el.innerHTML = DEVICES.map(d =>
-    `<button class="device-tab ${d.id === state.device ? 'active' : ''}" onclick="switchDevice('${d.id}')">${d.label}</button>`
-  ).join('');
+// ── SIDEBAR ──────────────────────────────────────────────────────
+function renderSidebar() {
+  // Profiles
+  const pl = document.getElementById('profileList');
+  pl.innerHTML = state.profiles.map(p => `
+    <div class="profile-item ${p.active ? 'active' : ''}" onclick="activateProfile('${p.id}')">
+      <div class="profile-dot ${p.active ? '' : 'inactive'}"></div>
+      <div class="profile-name">${escapeHtml(p.name)}</div>
+      <div class="profile-app-count">${Object.keys(state.keys).length}k</div>
+    </div>
+  `).join('');
+
+  // Zones
+  const zl = document.getElementById('zoneList');
+  zl.innerHTML = ZONES.map(z => `
+    <div class="zone-item ${selectedZone === z.id ? 'selected' : ''}" onclick="selectZone('${z.id}')">
+      <div class="zone-swatch" style="background:${z.color}"></div>
+      <div class="zone-name">${z.label}</div>
+      <div class="zone-count">${Object.values(state.keys).filter(k=>k.zone===z.id).length}</div>
+    </div>
+  `).join('');
+
+  // Quick templates
+  const tg = document.getElementById('templateGrid');
+  const templates = [
+    { icon:'⚡', label:'Hotkey' },
+    { icon:'🌐', label:'URL' },
+    { icon:'💻', label:'Shell' },
+    { icon:'🔴', label:'Record' },
+    { icon:'🎬', label:'Scene' },
+    { icon:'🔒', label:'System' },
+  ];
+  tg.innerHTML = templates.map(t => `
+    <div class="tpl-key" title="Drag to a key slot">
+      <div class="tpl-icon">${t.icon}</div>
+      <div>${t.label}</div>
+    </div>
+  `).join('');
+
+  // Wheel sidebar
+  const ws = document.getElementById('wheelSidebar');
+  ws.innerHTML = state.wheelProfiles.map(p => `
+    <div class="profile-item ${p.id === state.activeWheelProfile ? 'active' : ''}" onclick="setActiveWheelProfile('${p.id}')">
+      <div class="profile-dot ${p.id === state.activeWheelProfile ? '' : 'inactive'}"></div>
+      <div class="profile-name">${escapeHtml(p.name)}</div>
+    </div>
+  `).join('');
 }
 
+// ── GRID ──────────────────────────────────────────────────────────
 function renderGrid() {
-  const d = DEVICES.find(d => d.id === state.device);
-  const grid = document.getElementById('grid');
-  grid.style.gridTemplateColumns = `repeat(${d.cols}, 80px)`;
-  const nextKey = getSuggestedNextKey();
-  const selZone = state.selectedIdx !== null ? state.keys[state.selectedIdx]?.zone : null;
-  grid.innerHTML = state.keys.map((k, i) => {
-    const zone = ZONES.find(z => z.id === k.zone);
-    const zColor = zone ? zone.color : '#6b7280';
-    const row = Math.floor(i / d.cols);
-    const col = i % d.cols;
-    const isSuggested = i === nextKey && state.selectedIdx !== null;
-    const zoneDim = selZone && k.zone !== selZone && i !== state.selectedIdx && state.selectedIdx !== null;
-    return `<div class="key ${i === state.selectedIdx ? 'selected' : ''} ${k.active ? 'active' : ''} ${isSuggested ? 'suggested' : ''} ${zoneDim ? 'zone-dim' : ''}"
-      style="background:linear-gradient(145deg, ${zColor}18, ${zColor}08); border-color:${i === state.selectedIdx ? '#a78bfa' : zColor + '40'};"
-      onclick="selectKey(${i})" title="${escAttr(k.desc || k.label || 'Empty')}">
-      <span class="key-icon">${escHtml(k.icon)}</span>
-      <span class="key-label">${escHtml(k.label)}</span>
-      <span class="key-pos">${row},${col}</span>
+  const dev = DEVICES[currentDevice];
+  const grid = document.getElementById('deckGrid');
+  const count = dev.cols * dev.rows;
+
+  grid.style.gridTemplateColumns = `repeat(${dev.cols}, 1fr)`;
+  document.getElementById('deckLabel').textContent = dev.name;
+  document.getElementById('gridInfo').textContent = `${dev.cols} cols × ${dev.rows} rows`;
+
+  grid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const k = state.keys[i];
+    const el = document.createElement('div');
+    el.className = 'key' + (k ? ` kz-${k.zone}` : ' empty') + (selectedKey === i ? ' selected' : '');
+    el.dataset.index = i;
+    el.innerHTML = `
+      <div class="key-index">${i}</div>
+      ${k?.active ? '<div class="key-active-dot"></div>' : ''}
+      <div class="key-icon">${escapeHtml(k?.icon || '')}</div>
+      <div class="key-label">${escapeHtml(k?.label || '').replace(/\n/g, '<br>')}</div>
+    `;
+    el.onclick = () => selectKey(i);
+    grid.appendChild(el);
+  }
+
+  // Legend
+  const legend = document.getElementById('legendBar');
+  const usedZones = [...new Set(Object.values(state.keys).map(k => k.zone))];
+  legend.innerHTML = usedZones.map(zid => {
+    const z = ZONES.find(z => z.id === zid);
+    if (!z) return '';
+    return `<div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--muted)">
+      <div style="width:9px;height:9px;border-radius:2px;background:${z.color}"></div>
+      ${z.label}
     </div>`;
   }).join('');
-}
 
-function renderDialRow() {
-  const d = DEVICES.find(d => d.id === state.device);
-  const el = document.getElementById('dialRow');
-  if (d.dials === 0) { el.style.display = 'none'; return; }
-  el.style.display = 'flex';
-  el.innerHTML = Array.from({ length: d.dials }, (_, i) =>
-    `<div class="dial" onclick="toast('Dial ${i+1} — coming soon')">D${i+1}</div>`
-  ).join('');
-}
-
-function renderPanel() {
-  const panel = document.getElementById('panel');
-  const empty = getEmptyKeyCount();
-  const zoneStats = getZoneStats();
-
-  if (state.selectedIdx === null) {
-    const topZone = Object.entries(zoneStats).sort((a,b) => b[1]-a[1])[0];
-    panel.innerHTML = `<div class="panel-section"><div class="panel-title">Key Editor</div>
-      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p>
-      ${empty > 0 ? `<p style="font-size:11px;color:var(--sun);margin-top:6px;">${empty} empty key${empty > 1 ? 's' : ''} — click one to configure</p>` : ''}
-      ${topZone ? `<p style="font-size:10px;color:var(--text2);margin-top:4px;">Most used zone: ${ZONES.find(z=>z.id===topZone[0])?.label || topZone[0]} (${topZone[1]} keys)</p>` : ''}
-      <div class="autosave-badge" style="margin-top:8px;">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);"></span>
-        Auto-saved locally
+  // Dial section
+  document.getElementById('dialSection').style.display = dev.hasDial ? 'block' : 'none';
+  if (dev.hasDial) {
+    const dr = document.getElementById('dialRow');
+    dr.innerHTML = Array.from({length: dev.dials}, (_, i) => `
+      <div style="flex:1;aspect-ratio:1;max-width:80px;border-radius:50%;border:2px solid var(--border);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);cursor:pointer" onclick="selectKey('dial_${i}')">
+        ${i+1}
       </div>
-      </div>
-      ${renderExportSection()}`;
-    return;
+    `).join('');
   }
-  const k = state.keys[state.selectedIdx];
-  const d = DEVICES.find(d => d.id === state.device);
-  const row = Math.floor(state.selectedIdx / d.cols);
-  const col = state.selectedIdx % d.cols;
-  const recent = getRecentEmojis();
-  const zoneSuggestion = getZoneSuggestion(k.action, k.zone);
-  const suggestedZone = zoneSuggestion ? ZONES.find(z => z.id === zoneSuggestion) : null;
-  const nextIdx = getSuggestedNextKey();
-
-  panel.innerHTML = `
-    <div class="panel-section">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="panel-title">Key ${row},${col}</div>
-        <div class="autosave-badge"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);"></span> Saved</div>
-      </div>
-      <div class="icon-row">
-        <div class="icon-preview" style="background:${(ZONES.find(z=>z.id===k.zone)||{}).color || '#6b7280'}22;">${escHtml(k.icon)}</div>
-        <div class="field" style="flex:1;">
-          <label>Icon (emoji or text)</label>
-          <input type="text" value="${escAttr(k.icon)}" oninput="updateKey('icon', this.value)" maxlength="4" style="font-size:20px;text-align:center;">
-        </div>
-      </div>
-      ${recent.length > 0 ? `<div class="recent-emojis">
-        <span class="recent-label">Recent</span>
-        ${recent.map(e => `<button class="emoji-btn" onclick="pickEmoji('${e}')" style="font-size:16px;padding:2px;">${e}</button>`).join('')}
-      </div>` : ''}
-      <div class="emoji-grid">${EMOJIS.map(e => `<button class="emoji-btn" onclick="pickEmoji('${e}')">${e}</button>`).join('')}</div>
-    </div>
-    <div class="panel-section">
-      <div class="field">
-        <label>Label</label>
-        <input type="text" value="${escAttr(k.label)}" oninput="updateKey('label', this.value)" maxlength="20">
-      </div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">Zone Color</div>
-      <div class="zone-picker">
-        ${ZONES.map(z => `<div class="zone-chip ${k.zone === z.id ? 'active' : ''}"
-          style="background:${z.color}22;color:${z.color};"
-          onclick="updateKey('zone','${z.id}')">${z.label}</div>`).join('')}
-      </div>
-      ${suggestedZone ? `<div class="zone-suggest" style="color:${suggestedZone.color};border-color:${suggestedZone.color}40;background:${suggestedZone.color}10;" onclick="updateKey('zone','${suggestedZone.id}')">
-        Suggested: ${suggestedZone.label} (matches ${k.action})
-      </div>` : ''}
-    </div>
-    <div class="panel-section">
-      <div class="toggle-row">
-        <label style="font-size:12px;font-weight:600;color:var(--text2);">Active Indicator</label>
-        <div class="toggle ${k.active ? 'on' : ''}" onclick="updateKey('active', ${!k.active})"></div>
-      </div>
-    </div>
-    <div class="panel-section">
-      <div class="field">
-        <label>Action Type</label>
-        <select onchange="updateKey('action', this.value)">
-          ${ACTION_TYPES.map(a => `<option ${k.action === a ? 'selected' : ''}>${a}</option>`).join('')}
-        </select>
-      </div>
-      ${k.action !== 'None' ? `<div class="field">
-        <label>Action Value</label>
-        <input type="text" value="${escAttr(k.value)}" oninput="updateKey('value', this.value)" placeholder="${getPlaceholder(k.action)}">
-      </div>` : ''}
-    </div>
-    <div class="panel-section">
-      <div class="field">
-        <label>Description</label>
-        <textarea oninput="updateKey('desc', this.value)" placeholder="What does this key do?">${escHtml(k.desc)}</textarea>
-      </div>
-    </div>
-    <div class="panel-section">
-      <div class="panel-title">Quick Actions</div>
-      <div class="quick-actions">
-        <button class="quick-act" onclick="duplicateKey()">Duplicate →</button>
-        <button class="quick-act" onclick="clearKey()">Clear Key</button>
-        <button class="quick-act" onclick="copyKeyToClipboard()">Copy JSON</button>
-        ${k.zone ? `<button class="quick-act" onclick="selectAllZone('${k.zone}')">Select Zone</button>` : ''}
-      </div>
-    </div>
-    ${nextIdx !== null ? `<div class="next-key-bar">
-      <span>Next: ${state.keys[nextIdx]?.label || 'Empty key'}</span>
-      <button onclick="selectKey(${nextIdx})">Edit →</button>
-    </div>` : ''}
-    ${renderExportSection()}
-  `;
 }
 
-function renderExportSection() {
-  return `<div class="export-section">
-    <div class="panel-title" style="margin-bottom:8px;">Export / Import</div>
-    <div class="export-format">
-      ${['deckforge','streamdeck','csv'].map(f =>
-        `<button class="format-tab ${state.exportFormat === f ? 'active' : ''}" onclick="state.exportFormat='${f}';savePrefs({lastExportFormat:'${f}'});renderPanel();">${f === 'deckforge' ? 'DeckForge JSON' : f === 'streamdeck' ? 'Stream Deck' : 'CSV'}</button>`
-      ).join('')}
+function selectKey(index) {
+  selectedKey = index;
+  document.querySelectorAll('.key').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.key[data-index="${index}"]`);
+  if (el) el.classList.add('selected');
+
+  document.getElementById('selectionInfo').textContent = `key ${index} selected`;
+  showKeyEditor(index);
+  renderExport();
+}
+
+function showKeyEditor(index) {
+  document.getElementById('noKeyMsg').style.display = 'none';
+  document.getElementById('keyEditor').style.display = 'block';
+  document.getElementById('keyIndexLabel').textContent = index;
+
+  const k = state.keys[index] || {};
+  document.getElementById('fIcon').value = k.icon || '';
+  document.getElementById('fLabel').value = (k.label || '').replace(/\n/g, '\\n');
+  document.getElementById('fActive').checked = !!k.active;
+  document.getElementById('fActionType').value = k.action?.type || 'none';
+  document.getElementById('fActionValue').value = k.action?.value || '';
+  document.getElementById('fDescription').value = k.desc || '';
+
+  // Emoji row
+  const er = document.getElementById('emojiRow');
+  er.innerHTML = QUICK_EMOJIS.map(e => `
+    <div class="emoji-btn ${k.icon === e ? 'selected' : ''}" onclick="setEmoji('${e}')">${e}</div>
+  `).join('');
+
+  // Zone picker
+  const zp = document.getElementById('zonePicker');
+  zp.innerHTML = ZONES.map(z => `
+    <div class="zone-pill ${(k.zone || 'dim') === z.id ? 'selected' : ''}"
+      style="${(k.zone || 'dim') === z.id ? `color:${z.color};border-color:${z.border};background:${z.bg}` : ''}"
+      onclick="setKeyZone('${z.id}')">
+      ${z.id}
     </div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="exportDownload()">Download</button>
-      <button class="btn btn-secondary" onclick="exportClipboard()">Copy</button>
-      <button class="btn btn-secondary" onclick="importFile()">Import</button>
-    </div>
-  </div>`;
+  `).join('');
 }
 
-function renderWheel() {
-  const tabs = document.getElementById('wheelProfileTabs');
-  tabs.innerHTML = state.wheelProfiles.map(p =>
-    `<button class="wheel-profile-tab ${p.id === state.activeWheelProfile ? 'active' : ''}" onclick="state.activeWheelProfile='${p.id}';renderWheel();">${p.label}</button>`
-  ).join('') + `<button class="wheel-profile-tab" onclick="addWheelProfile()">+</button>`;
-
-  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
-  if (!profile) return;
-  const body = document.getElementById('wheelBody');
-  body.innerHTML = profile.bindings.map((b, i) => `<tr>
-    <td><input value="${escAttr(b.app)}" oninput="updateWheel(${i},'app',this.value)"></td>
-    <td><input value="${escAttr(b.up)}" oninput="updateWheel(${i},'up',this.value)"></td>
-    <td><input value="${escAttr(b.down)}" oninput="updateWheel(${i},'down',this.value)"></td>
-    <td><input value="${escAttr(b.click)}" oninput="updateWheel(${i},'click',this.value)"></td>
-  </tr>`).join('');
+function setEmoji(e) {
+  document.getElementById('fIcon').value = e;
+  updateKey();
+  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.textContent === e));
 }
 
-// ── Actions ──────────────────────────────────────────────────────────────────
-
-function switchDevice(id) {
-  state.device = id;
-  savePrefs({ lastDevice: id });
-  initKeys();
-  render();
+function setKeyZone(zid) {
+  if (selectedKey === null) return;
+  if (!state.keys[selectedKey]) state.keys[selectedKey] = { i: selectedKey };
+  state.keys[selectedKey].zone = zid;
+  updateKey();
+  showKeyEditor(selectedKey);
 }
 
-function selectKey(idx) {
-  state.selectedIdx = idx;
-  render();
+function updateKey() {
+  if (selectedKey === null) return;
+  const k = state.keys[selectedKey] || { i: selectedKey };
+  k.icon   = document.getElementById('fIcon').value;
+  k.label  = document.getElementById('fLabel').value.replace(/\\n/g, '\n');
+  k.active = document.getElementById('fActive').checked;
+  k.action = {
+    type:  document.getElementById('fActionType').value,
+    value: document.getElementById('fActionValue').value,
+  };
+  k.desc = document.getElementById('fDescription').value;
+  if (!k.zone) k.zone = 'dim';
+  state.keys[selectedKey] = k;
+  renderGrid();
+  selectKey(selectedKey);
+  renderSidebar();
+  renderExport();
 }
 
-function updateKey(prop, val) {
-  if (state.selectedIdx === null) return;
-  state.keys[state.selectedIdx][prop] = val;
-  render();
-}
-
-function pickEmoji(emoji) {
-  trackEmoji(emoji);
-  updateKey('icon', emoji);
-}
-
-function duplicateKey() {
-  if (state.selectedIdx === null) return;
-  const src = state.keys[state.selectedIdx];
-  const nextIdx = getSuggestedNextKey();
-  if (nextIdx === null) { toast('No adjacent key'); return; }
-  state.keys[nextIdx] = { ...src };
-  state.selectedIdx = nextIdx;
-  render();
-  toast('Duplicated to adjacent key');
-}
-
-function clearKey() {
-  if (state.selectedIdx === null) return;
-  state.keys[state.selectedIdx] = { icon:'', label:'', zone:'util', action:'None', value:'', active:false, desc:'' };
-  render();
+function clearSelected() {
+  if (selectedKey === null) return;
+  delete state.keys[selectedKey];
+  renderGrid();
+  document.getElementById('noKeyMsg').style.display = 'block';
+  document.getElementById('keyEditor').style.display = 'none';
+  selectedKey = null;
+  renderSidebar();
+  renderExport();
   toast('Key cleared');
 }
 
-function copyKeyToClipboard() {
-  if (state.selectedIdx === null) return;
-  const k = state.keys[state.selectedIdx];
-  navigator.clipboard.writeText(JSON.stringify(k, null, 2)).then(() => toast('Key JSON copied'));
+function clearAll() {
+  if (!confirm('Clear all keys?')) return;
+  state.keys = {};
+  renderGrid();
+  renderSidebar();
+  renderExport();
+  toast('Layout cleared');
 }
 
-function selectAllZone(zoneId) {
-  // Highlight all keys in this zone by toggling a filter view
-  toast(`${ZONES.find(z=>z.id===zoneId)?.label || zoneId}: ${state.keys.filter(k=>k.zone===zoneId).length} keys`);
+// ── ZONE SELECTION ────────────────────────────────────────────────
+function selectZone(zid) {
+  selectedZone = zid;
+  renderSidebar();
 }
 
-function restoreSession() {
-  const saved = loadAutoSave();
-  if (!saved) return;
-  state.device = saved.device || 'xl';
-  state.keys = saved.keys || [];
-  state.wheelProfiles = saved.wheelProfiles || JSON.parse(JSON.stringify(SEED_WHEEL));
-  state.activeWheelProfile = saved.activeWheelProfile || 'dev';
-  state.exportFormat = saved.exportFormat || 'deckforge';
-  state.selectedIdx = null;
-  render();
-  toast('Previous session restored');
+// ── WHEEL ──────────────────────────────────────────────────────────
+function updateWheelSelect() {
+  const sel = document.getElementById('wheelProfileSelect');
+  sel.innerHTML = state.wheelProfiles.map(p =>
+    `<option value="${escapeHtml(p.id)}" ${p.id === state.activeWheelProfile ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+  ).join('');
 }
 
-function dismissRestore() {
-  state.showRestore = false;
-  document.getElementById('restoreBanner')?.remove();
+function loadWheelProfile(id) {
+  state.activeWheelProfile = id;
+  renderWheelBindings(id);
 }
 
-function updateWheel(idx, prop, val) {
-  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
+function renderWheelBindings(profileId) {
+  const profile = state.wheelProfiles.find(p => p.id === profileId);
   if (!profile) return;
-  profile.bindings[idx][prop] = val;
+  const container = document.getElementById('wheelBindings');
+  container.innerHTML = profile.bindings.map((b, i) => `
+    <div style="margin-bottom:14px;padding:10px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">App ${i+1}</div>
+      <div class="field" style="margin-bottom:6px">
+        <label>Application</label>
+        <input type="text" value="${escapeHtml(b.app)}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+      </div>
+      <div class="wheel-bind-row">
+        <div class="wheel-dir-label">↑ up</div>
+        <input type="text" value="${escapeHtml(b.up)}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+      </div>
+      <div class="wheel-bind-row">
+        <div class="wheel-dir-label">↓ down</div>
+        <input type="text" value="${escapeHtml(b.down)}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+      </div>
+      <div class="wheel-bind-row">
+        <div class="wheel-dir-label">● click</div>
+        <input type="text" value="${escapeHtml(b.click)}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+      </div>
+    </div>
+  `).join('') + `<button class="btn" style="width:100%;font-size:10px" onclick="addWheelBinding('${profileId}')">+ add app binding</button>`;
 }
 
-function addWheelRow() {
+function updateWheelBinding(idx, field, val) {
   const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
-  if (!profile) return;
-  profile.bindings.push({ app: '', up: '', down: '', click: '' });
-  renderWheel();
+  if (profile && profile.bindings[idx]) {
+    profile.bindings[idx][field] = val;
+    renderExport();
+  }
+}
+
+function addWheelBinding(profileId) {
+  const profile = state.wheelProfiles.find(p => p.id === profileId);
+  if (profile) {
+    profile.bindings.push({ app: 'New App', up: '', down: '', click: '' });
+    renderWheelBindings(profileId);
+  }
+}
+
+function saveWheelProfile() {
+  renderSidebar();
+  renderExport();
+  toast('Wheel profile saved');
+}
+
+function setActiveWheelProfile(id) {
+  state.activeWheelProfile = id;
+  updateWheelSelect();
+  renderWheelBindings(id);
+  renderSidebar();
 }
 
 function addWheelProfile() {
-  const name = prompt('Profile name:');
+  const name = prompt('Wheel profile name:', 'New Profile');
   if (!name) return;
   const id = name.toLowerCase().replace(/\s+/g, '_');
-  state.wheelProfiles.push({ id, label: name, bindings: [{ app: '', up: '', down: '', click: '' }] });
-  state.activeWheelProfile = id;
-  renderWheel();
+  state.wheelProfiles.push({ id, name, bindings: [
+    { app: 'Default', up: '', down: '', click: '' }
+  ]});
+  updateWheelSelect();
+  renderSidebar();
+  toast(`Wheel profile "${name}" added`);
 }
 
-// ── Export / Import ──────────────────────────────────────────────────────────
+// ── PROFILES ──────────────────────────────────────────────────────
+function addProfile() {
+  const name = prompt('Profile name:', 'New Profile');
+  if (!name) return;
+  state.profiles.push({ id: name.toLowerCase().replace(/\s+/g,'_'), name, active: false });
+  renderSidebar();
+}
 
-function buildExport() {
-  const d = DEVICES.find(d => d.id === state.device);
-  if (state.exportFormat === 'deckforge') {
-    return JSON.stringify({
-      format: 'deckforge',
-      version: 1,
-      device: state.device,
-      cols: d.cols,
-      rows: d.rows,
-      keys: state.keys.map((k, i) => ({
-        row: Math.floor(i / d.cols),
-        col: i % d.cols,
+function activateProfile(id) {
+  state.profiles.forEach(p => p.active = p.id === id);
+  renderSidebar();
+}
+
+// ── DEVICE ────────────────────────────────────────────────────────
+function setDevice(val) {
+  currentDevice = val;
+  state.device = val;
+  document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === val));
+  renderGrid();
+  renderExport();
+}
+
+document.querySelectorAll('.model-tab').forEach(t => {
+  t.onclick = () => {
+    document.getElementById('deviceSelect').value = t.dataset.model;
+    setDevice(t.dataset.model);
+  };
+});
+
+// ── PANEL TABS ────────────────────────────────────────────────────
+function renderPanelTabs() {
+  document.querySelectorAll('.panel-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      if (tab.dataset.tab === 'export') renderExport();
+    };
+  });
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────
+function buildJSON() {
+  const dev = DEVICES[currentDevice];
+  const profileName = document.getElementById('exportProfileName')?.value || state.profileName;
+  const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
+
+  if (fmt === 'csv') {
+    const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
+    for (let i = 0; i < dev.cols * dev.rows; i++) {
+      const k = state.keys[i];
+      if (k) rows.push(`${i},"${k.icon}","${(k.label||'').replace(/\n/g,' ')}","${k.zone}",${k.active},"${k.action?.type}","${k.action?.value}","${k.desc||''}"`);
+    }
+    return rows.join('\n');
+  }
+
+  const out = {
+    version: '1.0',
+    generator: 'DeckForge',
+    profile: profileName,
+    device: { id: currentDevice, name: dev.name, cols: dev.cols, rows: dev.rows },
+    keys: {},
+    wheelProfiles: state.wheelProfiles,
+    activeWheelProfile: state.activeWheelProfile,
+    exportedAt: new Date().toISOString(),
+  };
+
+  for (let i = 0; i < dev.cols * dev.rows; i++) {
+    const k = state.keys[i];
+    if (k) {
+      out.keys[i] = {
+        index: i,
+        row: Math.floor(i / dev.cols),
+        col: i % dev.cols,
         icon: k.icon,
         label: k.label,
         zone: k.zone,
         active: k.active,
-        action: { type: k.action, value: k.value },
+        action: k.action,
         description: k.desc,
-      })),
-      wheelProfiles: state.wheelProfiles,
-      exportedAt: new Date().toISOString(),
-    }, null, 2);
+      };
+    } else {
+      out.keys[i] = null;
+    }
   }
-  if (state.exportFormat === 'streamdeck') {
+
+  if (fmt === 'streamdeck') {
+    // Approximate Stream Deck profile format
     return JSON.stringify({
-      Name: `DeckForge Export — ${d.label}`,
-      DeviceModel: state.device === 'xl' ? 'StreamDeckXL' : state.device === 'mk2' ? 'StreamDeckMK2' : state.device === 'mini' ? 'StreamDeckMini' : 'StreamDeckPlus',
-      Rows: d.rows,
-      Columns: d.cols,
-      Actions: state.keys.reduce((acc, k, i) => {
-        if (k.action !== 'None') {
-          acc[`${Math.floor(i / d.cols)},${i % d.cols}`] = {
-            Name: k.label,
-            State: k.active ? 0 : 1,
-            Settings: { action: k.action, value: k.value },
-          };
-        }
-        return acc;
-      }, {}),
+      Name: profileName,
+      Actions: Object.values(out.keys).filter(Boolean).map(k => ({
+        State: 0,
+        States: [{ Image: '', Title: k.label?.replace(/\n/g,' ') || '', TitleParameters: {} }],
+        Settings: { hotkey: k.action?.value || '' },
+        UUID: 'com.elgato.hotkey',
+        name: k.label?.replace(/\n/g,' ') || '',
+      }))
     }, null, 2);
   }
-  // CSV
-  const header = 'Row,Col,Icon,Label,Zone,Active,ActionType,ActionValue,Description';
-  const rows = state.keys.map((k, i) =>
-    [Math.floor(i / d.cols), i % d.cols, `"${k.icon}"`, `"${k.label}"`, k.zone, k.active, k.action, `"${k.value}"`, `"${k.desc}"`].join(',')
-  );
-  return [header, ...rows].join('\n');
+
+  return JSON.stringify(out, null, 2);
 }
 
-function exportDownload() {
-  const data = buildExport();
-  const ext = state.exportFormat === 'csv' ? 'csv' : 'json';
-  const mime = state.exportFormat === 'csv' ? 'text/csv' : 'application/json';
-  const blob = new Blob([data], { type: mime });
+function renderExport() {
+  const out = document.getElementById('jsonOutput');
+  if (!out) return;
+  const json = buildJSON();
+  // Syntax highlight
+  const hl = json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"([^"]+)":/g, '<span class="jk">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="js">"$1"</span>')
+    .replace(/: (true|false)/g, ': <span class="jb">$1</span>')
+    .replace(/: (\d+)/g, ': <span class="jn">$1</span>');
+  out.innerHTML = hl;
+}
+
+function copyJSON() {
+  navigator.clipboard.writeText(buildJSON()).then(() => {
+    const cc = document.getElementById('copyConfirm');
+    cc.classList.add('show');
+    setTimeout(() => cc.classList.remove('show'), 2000);
+    toast('Copied to clipboard');
+  });
+}
+
+function downloadJSON() {
+  const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
+  const name = document.getElementById('exportProfileName')?.value || 'layout';
+  const ext = fmt === 'csv' ? 'csv' : fmt === 'streamdeck' ? 'streamDeckProfile' : 'json';
+  const blob = new Blob([buildJSON()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `deckforge-${state.device}.${ext}`;
+  a.download = `${name.toLowerCase().replace(/\s+/g,'-')}.${ext}`;
   a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Downloaded!');
+  toast(`Downloaded ${a.download}`);
 }
 
-function exportClipboard() {
-  navigator.clipboard.writeText(buildExport()).then(() => toast('Copied to clipboard!'));
+function exportJSON() {
+  // Switch to export tab then download
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('[data-tab="export"]').classList.add('active');
+  document.getElementById('tab-export').classList.add('active');
+  renderExport();
+  downloadJSON();
 }
 
-function importFile() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (data.format === 'deckforge' && data.keys) {
-          state.device = data.device || 'xl';
-          const d = DEVICES.find(d => d.id === state.device);
-          state.keys = data.keys.map(k => ({
-            icon: k.icon || '',
-            label: k.label || '',
-            zone: k.zone || 'util',
-            action: k.action?.type || 'None',
-            value: k.action?.value || '',
-            active: k.active ?? false,
-            desc: k.description || '',
-          }));
-          // Pad or trim to device size
-          const total = d.cols * d.rows;
-          while (state.keys.length < total) state.keys.push({ icon:'', label:'', zone:'util', action:'None', value:'', active:false, desc:'' });
-          state.keys = state.keys.slice(0, total);
-          if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
-          state.selectedIdx = null;
-          render();
-          toast('Layout imported!');
-        } else {
-          toast('Invalid DeckForge file');
-        }
-      } catch { toast('Failed to parse JSON'); }
-    };
-    reader.readAsText(file);
+function importJSON() {
+  document.getElementById('importFile').click();
+}
+
+function handleImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.keys) {
+        state.keys = {};
+        Object.entries(data.keys).forEach(([idx, k]) => {
+          if (k) state.keys[parseInt(idx)] = k;
+        });
+      }
+      if (data.device?.id) {
+        currentDevice = data.device.id;
+        document.getElementById('deviceSelect').value = currentDevice;
+      }
+      if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
+      if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
+      renderGrid();
+      renderSidebar();
+      updateWheelSelect();
+      renderWheelBindings(state.activeWheelProfile);
+      renderExport();
+      toast('Layout imported');
+    } catch {
+      toast('Invalid JSON file');
+    }
   };
-  input.click();
+  reader.readAsText(file);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('input[name="exportFmt"]').forEach(r => {
+  r.addEventListener('change', renderExport);
+});
 
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-
-function getPlaceholder(action) {
-  const map = { 'Hotkey':'Cmd+Shift+K', 'Open URL':'https://...', 'Shell Command':'git push origin main', 'System':'open -a "App"', 'OBS WebSocket':'SetCurrentScene:Main', 'vMix API':'Function:Cut', 'AppleScript':'tell app ...' };
-  return map[action] || '';
-}
-
+// ── TOAST ────────────────────────────────────────────────────────
 function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
-{
-  const saved = loadAutoSave();
-  const prefs = loadPrefs();
-  if (saved && saved.keys && saved.keys.length > 0) {
-    state.device = saved.device || 'xl';
-    state.keys = saved.keys;
-    state.wheelProfiles = saved.wheelProfiles || JSON.parse(JSON.stringify(SEED_WHEEL));
-    state.activeWheelProfile = saved.activeWheelProfile || 'dev';
-    state.exportFormat = saved.exportFormat || 'deckforge';
-  } else {
-    state.device = prefs.lastDevice || 'xl';
-    initKeys();
-  }
-  if (prefs.lastExportFormat) state.exportFormat = prefs.lastExportFormat;
-  render();
-}
+// ── GO ────────────────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>
