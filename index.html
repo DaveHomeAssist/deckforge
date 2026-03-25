@@ -1269,8 +1269,129 @@ const DEFAULT_KEYS_XL = [
 
 DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
 
+// ── PERSISTENCE ──────────────────────────────────────────────────
+function saveState() {
+  try {
+    const s = JSON.stringify({
+      version: 2,
+      profileName: state.profileName,
+      device: currentDevice,
+      profiles: state.profiles,
+      keys: state.keys,
+      wheelProfiles: state.wheelProfiles,
+      activeWheelProfile: state.activeWheelProfile,
+    });
+    localStorage.setItem('deckforge_state', s);
+    saveSnapshot();
+  } catch (e) { console.warn('DeckForge: save failed', e); }
+}
+
+function loadState() {
+  // Check URL hash first for shared layouts
+  if (location.hash.startsWith('#layout=')) {
+    try {
+      const compressed = location.hash.slice(8);
+      const json = decodeURIComponent(atob(compressed));
+      const data = JSON.parse(json);
+      applyImportedState(data);
+      history.replaceState(null, '', location.pathname); // clean URL after loading
+      toast('Shared layout loaded');
+      return;
+    } catch (e) { console.warn('DeckForge: URL layout invalid', e); }
+  }
+
+  try {
+    const raw = localStorage.getItem('deckforge_state');
+    if (!raw) return; // use defaults
+    const data = JSON.parse(raw);
+    applyImportedState(data);
+  } catch (e) { console.warn('DeckForge: load failed', e); }
+}
+
+function applyImportedState(data) {
+  if (data.keys) {
+    state.keys = {};
+    Object.entries(data.keys).forEach(([idx, k]) => {
+      if (k) state.keys[parseInt(idx)] = k;
+    });
+  }
+  if (data.device) {
+    currentDevice = data.device;
+    state.device = data.device;
+    const sel = document.getElementById('deviceSelect');
+    if (sel) sel.value = currentDevice;
+  }
+  if (data.profiles) state.profiles = data.profiles;
+  if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
+  if (data.activeWheelProfile) state.activeWheelProfile = data.activeWheelProfile;
+  if (data.profileName) state.profileName = data.profileName;
+}
+
+function saveSnapshot() {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
+    snapshots.push({
+      ts: Date.now(),
+      keys: JSON.parse(JSON.stringify(state.keys)),
+      device: currentDevice,
+    });
+    // Keep last 30 snapshots max
+    if (snapshots.length > 30) snapshots.splice(0, snapshots.length - 30);
+    localStorage.setItem('deckforge_history', JSON.stringify(snapshots));
+  } catch (e) { /* quota exceeded — silently skip */ }
+}
+
+function shareLayout() {
+  const data = {
+    version: 2,
+    profileName: state.profileName,
+    device: currentDevice,
+    keys: state.keys,
+    wheelProfiles: state.wheelProfiles,
+    activeWheelProfile: state.activeWheelProfile,
+  };
+  const json = JSON.stringify(data);
+  const compressed = btoa(encodeURIComponent(json));
+  const url = location.origin + location.pathname + '#layout=' + compressed;
+  navigator.clipboard.writeText(url).then(() => {
+    toast('Share link copied to clipboard');
+  }).catch(() => {
+    // Fallback: show URL in prompt
+    prompt('Share this URL:', url);
+  });
+}
+
+function resetDefaults() {
+  if (!confirm('Reset all keys and profiles to factory defaults? This cannot be undone.')) return;
+  localStorage.removeItem('deckforge_state');
+  localStorage.removeItem('deckforge_history');
+  location.reload();
+}
+
+function undoLayout() {
+  try {
+    const snapshots = JSON.parse(localStorage.getItem('deckforge_history') || '[]');
+    if (snapshots.length < 2) { toast('Nothing to undo'); return; }
+    snapshots.pop(); // remove current
+    const prev = snapshots[snapshots.length - 1];
+    localStorage.setItem('deckforge_history', JSON.stringify(snapshots));
+    state.keys = prev.keys;
+    currentDevice = prev.device;
+    state.device = prev.device;
+    const sel = document.getElementById('deviceSelect');
+    if (sel) sel.value = currentDevice;
+    renderGrid();
+    renderSidebar();
+    renderExport();
+    saveState();
+    toast('Undone');
+  } catch (e) { toast('Undo failed'); }
+}
+
+
 // ── INIT ──────────────────────────────────────────────────────────
 function init() {
+  loadState();
   renderSidebar();
   renderGrid();
   renderPanelTabs();
@@ -1451,6 +1572,7 @@ function updateKey() {
   selectKey(selectedKey);
   renderSidebar();
   renderExport();
+  saveState();
 }
 
 function clearSelected() {
@@ -1462,6 +1584,7 @@ function clearSelected() {
   selectedKey = null;
   renderSidebar();
   renderExport();
+  saveState();
   toast('Key cleared');
 }
 
@@ -1471,6 +1594,7 @@ function clearAll() {
   renderGrid();
   renderSidebar();
   renderExport();
+  saveState();
   toast('Layout cleared');
 }
 
@@ -1525,6 +1649,7 @@ function updateWheelBinding(idx, field, val) {
   if (profile && profile.bindings[idx]) {
     profile.bindings[idx][field] = val;
     renderExport();
+    saveState();
   }
 }
 
@@ -1539,6 +1664,7 @@ function addWheelBinding(profileId) {
 function saveWheelProfile() {
   renderSidebar();
   renderExport();
+  saveState();
   toast('Wheel profile saved');
 }
 
@@ -1558,6 +1684,7 @@ function addWheelProfile() {
   ]});
   updateWheelSelect();
   renderSidebar();
+  saveState();
   toast(`Wheel profile "${name}" added`);
 }
 
@@ -1567,11 +1694,13 @@ function addProfile() {
   if (!name) return;
   state.profiles.push({ id: name.toLowerCase().replace(/\s+/g,'_'), name, active: false });
   renderSidebar();
+  saveState();
 }
 
 function activateProfile(id) {
   state.profiles.forEach(p => p.active = p.id === id);
   renderSidebar();
+  saveState();
 }
 
 // ── DEVICE ────────────────────────────────────────────────────────
@@ -1581,6 +1710,7 @@ function setDevice(val) {
   document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === val));
   renderGrid();
   renderExport();
+  saveState();
 }
 
 document.querySelectorAll('.model-tab').forEach(t => {
@@ -1738,6 +1868,7 @@ function handleImport(event) {
       updateWheelSelect();
       renderWheelBindings(state.activeWheelProfile);
       renderExport();
+      saveState();
       toast('Layout imported');
     } catch {
       toast('Invalid JSON file');
