@@ -1302,8 +1302,54 @@ const DEFAULT_KEYS_XL = [
 
 DEFAULT_KEYS_XL.forEach(k => { state.keys[k.i] = k; });
 
+// ── PERSISTENCE ──────────────────────────────────────────────────
+const LS_KEY = 'deckforge-state';
+const SCHEMA_VERSION = 1;
+
+function saveState() {
+  try {
+    const data = { v: SCHEMA_VERSION, state, currentDevice, selectedZone };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('DeckForge: save failed', e);
+  }
+}
+
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || data.v !== SCHEMA_VERSION) return false;
+    if (data.state) {
+      state = data.state;
+      // Ensure required fields exist
+      if (!state.profiles) state.profiles = [{ id: 'main', name: 'Main', active: true }];
+      if (!state.keys) state.keys = {};
+      if (!state.wheelProfiles) state.wheelProfiles = [];
+      if (!state.activeWheelProfile) state.activeWheelProfile = state.wheelProfiles[0]?.id || '';
+    }
+    if (data.currentDevice) currentDevice = data.currentDevice;
+    if (data.selectedZone) selectedZone = data.selectedZone;
+    return true;
+  } catch (e) {
+    console.warn('DeckForge: restore failed, using defaults', e);
+    return false;
+  }
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset all data to defaults? This cannot be undone.')) return;
+  localStorage.removeItem(LS_KEY);
+  location.reload();
+}
+
 // ── INIT ──────────────────────────────────────────────────────────
 function init() {
+  const restored = restoreState();
+  if (restored) {
+    document.getElementById('deviceSelect').value = currentDevice;
+  }
   renderSidebar();
   renderGrid();
   renderPanelTabs();
@@ -1320,7 +1366,8 @@ function renderSidebar() {
     <div class="profile-item ${p.active ? 'active' : ''}" onclick="activateProfile('${p.id}')">
       <div class="profile-dot ${p.active ? '' : 'inactive'}"></div>
       <div class="profile-name">${p.name}</div>
-      <div class="profile-app-count">${Object.keys(state.keys).length}k</div>
+      <div class="profile-app-count">${Object.keys(p.keys || state.keys).length}k</div>
+      ${state.profiles.length > 1 ? `<span style="font-size:10px;color:var(--muted);cursor:pointer;margin-left:4px" onclick="event.stopPropagation();deleteProfile('${p.id}')">×</span>` : ''}
     </div>
   `).join('');
 
@@ -1337,15 +1384,15 @@ function renderSidebar() {
   // Quick templates
   const tg = document.getElementById('templateGrid');
   const templates = [
-    { icon:'⚡', label:'Hotkey' },
-    { icon:'🌐', label:'URL' },
-    { icon:'💻', label:'Shell' },
-    { icon:'🔴', label:'Record' },
-    { icon:'🎬', label:'Scene' },
-    { icon:'🔒', label:'System' },
+    { icon:'⚡', label:'Hotkey', action:'hotkey' },
+    { icon:'🌐', label:'URL', action:'url' },
+    { icon:'💻', label:'Shell', action:'shell' },
+    { icon:'🔴', label:'Record', action:'hotkey' },
+    { icon:'🎬', label:'Scene', action:'obs' },
+    { icon:'🔒', label:'System', action:'system' },
   ];
   tg.innerHTML = templates.map(t => `
-    <div class="tpl-key" title="Drag to a key slot">
+    <div class="tpl-key" title="Click to apply to selected key" onclick="applyTemplate('${t.action}', '${t.icon}')">
       <div class="tpl-icon">${t.icon}</div>
       <div>${t.label}</div>
     </div>
@@ -1487,6 +1534,22 @@ function updateKey() {
   selectKey(selectedKey);
   renderSidebar();
   renderExport();
+  saveState();
+}
+
+function applyTemplate(actionType, icon) {
+  if (selectedKey === null) { toast('Select a key first', 'error'); return; }
+  if (!state.keys[selectedKey]) state.keys[selectedKey] = { i: selectedKey };
+  const k = state.keys[selectedKey];
+  k.icon = icon;
+  k.action = { type: actionType, value: '' };
+  if (!k.zone || k.zone === 'dim') k.zone = selectedZone;
+  renderGrid();
+  selectKey(selectedKey);
+  renderSidebar();
+  renderExport();
+  saveState();
+  toast('Template applied');
 }
 
 function clearSelected() {
@@ -1498,6 +1561,7 @@ function clearSelected() {
   selectedKey = null;
   renderSidebar();
   renderExport();
+  saveState();
   toast('Key cleared');
 }
 
@@ -1507,6 +1571,7 @@ function clearAll() {
   renderGrid();
   renderSidebar();
   renderExport();
+  saveState();
   toast('Layout cleared');
 }
 
@@ -1514,6 +1579,7 @@ function clearAll() {
 function selectZone(zid) {
   selectedZone = zid;
   renderSidebar();
+  saveState();
 }
 
 // ── WHEEL ──────────────────────────────────────────────────────────
@@ -1561,6 +1627,7 @@ function updateWheelBinding(idx, field, val) {
   if (profile && profile.bindings[idx]) {
     profile.bindings[idx][field] = val;
     renderExport();
+    saveState();
   }
 }
 
@@ -1569,12 +1636,14 @@ function addWheelBinding(profileId) {
   if (profile) {
     profile.bindings.push({ app: 'New App', up: '', down: '', click: '' });
     renderWheelBindings(profileId);
+    saveState();
   }
 }
 
 function saveWheelProfile() {
   renderSidebar();
   renderExport();
+  saveState();
   toast('Wheel profile saved');
 }
 
@@ -1594,6 +1663,7 @@ function addWheelProfile() {
   ]});
   updateWheelSelect();
   renderSidebar();
+  saveState();
   toast(`Wheel profile "${name}" added`);
 }
 
@@ -1601,13 +1671,66 @@ function addWheelProfile() {
 function addProfile() {
   const name = prompt('Profile name:', 'New Profile');
   if (!name) return;
-  state.profiles.push({ id: name.toLowerCase().replace(/\s+/g,'_'), name, active: false });
+  const id = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
+
+  // Save current keys to active profile first
+  const current = state.profiles.find(p => p.active);
+  if (current) current.keys = { ...state.keys };
+
+  // Ask if they want to duplicate current layout
+  const dupe = confirm('Copy current layout to new profile?');
+
+  state.profiles.push({
+    id,
+    name,
+    active: false,
+    keys: dupe ? { ...state.keys } : {}
+  });
+
   renderSidebar();
+  saveState();
+}
+
+function deleteProfile(id) {
+  if (state.profiles.length <= 1) { toast('Cannot delete the only profile', 'error'); return; }
+  const target = state.profiles.find(p => p.id === id);
+  if (!target) return;
+  if (!confirm(`Delete profile "${target.name}"?`)) return;
+
+  const wasActive = target.active;
+  state.profiles = state.profiles.filter(p => p.id !== id);
+
+  if (wasActive) {
+    state.profiles[0].active = true;
+    state.keys = state.profiles[0].keys ? { ...state.profiles[0].keys } : {};
+  }
+
+  renderGrid();
+  renderSidebar();
+  renderExport();
+  saveState();
 }
 
 function activateProfile(id) {
-  state.profiles.forEach(p => p.active = p.id === id);
+  // Save current keys to the active profile before switching
+  const current = state.profiles.find(p => p.active);
+  if (current) current.keys = { ...state.keys };
+
+  // Switch active flag
+  state.profiles.forEach(p => p.active = (p.id === id));
+
+  // Load the new profile's keys
+  const target = state.profiles.find(p => p.id === id);
+  state.keys = target?.keys ? { ...target.keys } : {};
+
+  selectedKey = null;
+  document.getElementById('noKeyMsg').style.display = 'block';
+  document.getElementById('keyEditor').style.display = 'none';
+
+  renderGrid();
   renderSidebar();
+  renderExport();
+  saveState();
 }
 
 // ── DEVICE ────────────────────────────────────────────────────────
@@ -1617,6 +1740,7 @@ function setDevice(val) {
   document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === val));
   renderGrid();
   renderExport();
+  saveState();
 }
 
 document.querySelectorAll('.model-tab').forEach(t => {

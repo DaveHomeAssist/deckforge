@@ -41,7 +41,7 @@ deckforge/
 - Do not add external dependencies (React, Tailwind, etc.).
 - Do not split into multiple files.
 - Do not add a build step.
-- Do not add localStorage persistence (export/import is the persistence model).
+- State persists to localStorage via saveState(). Export/import remains available for sharing.
 - Do not add server-side functionality.
 
 ## Testing
