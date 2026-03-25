@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeckForge — Stream Deck Profile Generator</title>
+<style>
+:root {
+  --bg: #0f0f12; --bg2: #1a1a22; --bg3: #24242e;
+  --border: #2e2e3a; --text: #e8e6f0; --text2: #9896a8;
+  --accent: #7c6cf0; --accent2: #a78bfa;
+  --green: #34d399; --red: #f87171; --sun: #fbbf24;
+  --radius: 8px;
+  /* Zone colors */
+  --z-dev: #7c6cf0; --z-av: #ef4444; --z-notion: #3b82f6;
+  --z-light: #fbbf24; --z-print: #f97316; --z-deploy: #34d399;
+  --z-music: #ec4899; --z-util: #6b7280;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+.app { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; min-height: 100vh; }
+.header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+.header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.header h1 span { color: var(--accent); }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.device-tabs { display: flex; gap: 4px; }
+.device-tab { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; font-weight: 600; transition: all 0.15s; }
+.device-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.device-tab:hover:not(.active) { background: var(--bg3); color: var(--text); }
+
+.main { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.grid-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.grid { display: grid; gap: 6px; }
+.key { position: relative; width: 80px; height: 80px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; transition: all 0.15s; overflow: hidden; }
+.key:hover { border-color: var(--accent); transform: scale(1.04); }
+.key.selected { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,108,240,0.3); }
+.key.active::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.key-icon { font-size: 24px; line-height: 1; }
+.key-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); text-align: center; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.key-pos { position: absolute; bottom: 3px; right: 5px; font-size: 8px; color: rgba(255,255,255,0.15); font-family: 'SF Mono', monospace; }
+
+.dial-row { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 4px; }
+.dial { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+.dial:hover { border-color: var(--accent); }
+.dial.selected { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,108,240,0.3); }
+
+/* Right panel */
+.panel { border-left: 1px solid var(--border); background: var(--bg2); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.panel-section { display: flex; flex-direction: column; gap: 8px; }
+.panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text2); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--text2); }
+.field input, .field select, .field textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 60px; }
+
+.zone-picker { display: flex; flex-wrap: wrap; gap: 4px; }
+.zone-chip { padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; opacity: 0.6; }
+.zone-chip.active { opacity: 1; border-color: rgba(255,255,255,0.3); box-shadow: 0 0 8px rgba(255,255,255,0.1); }
+
+.icon-row { display: flex; gap: 6px; align-items: center; }
+.icon-preview { width: 48px; height: 48px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 120px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+.emoji-btn { background: none; border: none; font-size: 18px; padding: 4px; border-radius: 4px; cursor: pointer; }
+.emoji-btn:hover { background: var(--bg3); }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.toggle.on::after { transform: translateX(16px); }
+
+/* Wheel editor */
+.wheel-section { border-top: 1px solid var(--border); padding-top: 14px; }
+.wheel-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wheel-table th { text-align: left; padding: 4px 6px; color: var(--text2); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); }
+.wheel-table td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.wheel-table input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--text); font-size: 11px; }
+.wheel-profile-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.wheel-profile-tab { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; }
+.wheel-profile-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Export section */
+.export-section { border-top: 1px solid var(--border); padding-top: 14px; }
+.btn { padding: 8px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; transition: all 0.15s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg); }
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.export-format { display: flex; gap: 4px; margin-bottom: 8px; }
+.format-tab { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 11px; cursor: pointer; }
+.format-tab.active { background: var(--bg3); color: var(--text); border-color: var(--text2); }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--accent); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s ease; pointer-events: none; z-index: 100; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><span>Deck</span>Forge</h1>
+    <div class="header-actions">
+      <div class="device-tabs" id="deviceTabs"></div>
+    </div>
+  </div>
+  <div class="main" id="main">
+    <div class="grid-container">
+      <div class="grid" id="grid"></div>
+      <div class="dial-row" id="dialRow" style="display:none;"></div>
+    </div>
+    <div class="wheel-section" id="wheelSection">
+      <div class="panel-title" style="margin-bottom:8px;">Logitech Options+ Wheel Profiles</div>
+      <div class="wheel-profile-tabs" id="wheelProfileTabs"></div>
+      <table class="wheel-table" id="wheelTable">
+        <thead><tr><th>App</th><th>Scroll Up</th><th>Scroll Down</th><th>Click</th></tr></thead>
+        <tbody id="wheelBody"></tbody>
+      </table>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addWheelRow()">+ Add App</button>
+    </div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="panel-section">
+      <div class="panel-title">Key Editor</div>
+      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+const ZONES = [
+  { id: 'dev',     label: 'Dev / PLB',       color: '#7c6cf0' },
+  { id: 'av',      label: 'Production AV',   color: '#ef4444' },
+  { id: 'notion',  label: 'Notion / OS',     color: '#3b82f6' },
+  { id: 'light',   label: 'Lighting',        color: '#fbbf24' },
+  { id: 'print',   label: '3D Print',        color: '#f97316' },
+  { id: 'deploy',  label: 'Deploy',          color: '#34d399' },
+  { id: 'music',   label: 'Music / SAP',     color: '#ec4899' },
+  { id: 'util',    label: 'Utility',         color: '#6b7280' },
+];
+
+const ACTION_TYPES = ['None', 'Hotkey', 'Open URL', 'Shell Command', 'System', 'OBS WebSocket', 'vMix API', 'AppleScript'];
+
+const DEVICES = [
+  { id: 'xl',   label: 'XL',       cols: 8, rows: 4, dials: 0 },
+  { id: 'mk2',  label: 'MK.2',     cols: 5, rows: 3, dials: 0 },
+  { id: 'mini', label: 'Mini',      cols: 3, rows: 2, dials: 0 },
+  { id: 'plus', label: '+ (Plus)',  cols: 4, rows: 2, dials: 4 },
+];
+
+const EMOJIS = [
+  '🖥️','🎬','🎤','🎧','💡','🔴','🟢','🔵','📺','🎛️','📡','🎥',
+  '⚙️','🔧','🛠️','📦','🚀','🌐','📝','📋','🗂️','💾','🔒','🔑',
+  '🎨','🖌️','🎵','🎹','🪄','✂️','📐','🏗️','🖨️','📸','🔍','👁️',
+  '⏯️','⏸️','⏹️','⏺️','⏭️','⏮️','🔊','🔇','🎚️','🔔','💬','📢',
+  '☀️','🌙','🔦','💡','🌈','🔥','❄️','⚡','🏠','🍃','🌸','🎯',
+];
+
+// Pre-seeded XL layout (32 keys)
+const SEED_KEYS = [
+  { icon:'🖥️', label:'VS Code',     zone:'dev',    action:'Hotkey', value:'Cmd+Space → code', active:true, desc:'Launch VS Code' },
+  { icon:'🔧', label:'Terminal',     zone:'dev',    action:'Hotkey', value:'Cmd+Space → term', active:true, desc:'Open terminal' },
+  { icon:'🌐', label:'Claude',       zone:'dev',    action:'Open URL', value:'https://claude.ai', active:true, desc:'Claude AI chat' },
+  { icon:'📋', label:'Prompt Lab',   zone:'dev',    action:'Open URL', value:'https://prompt-lab-tawny.vercel.app/app/', active:true, desc:'Open Prompt Lab' },
+  { icon:'🚀', label:'Deploy',       zone:'deploy', action:'Shell Command', value:'git push origin main', active:true, desc:'Push to main' },
+  { icon:'📦', label:'Build',        zone:'deploy', action:'Shell Command', value:'npm run build', active:true, desc:'Run build' },
+  { icon:'🔍', label:'Lighthouse',   zone:'deploy', action:'Open URL', value:'https://pagespeed.web.dev/', active:false, desc:'PageSpeed test' },
+  { icon:'📡', label:'GitHub',       zone:'deploy', action:'Open URL', value:'https://github.com/DaveHomeAssist', active:true, desc:'GitHub profile' },
+  { icon:'🎬', label:'OBS',          zone:'av',     action:'System', value:'open -a OBS', active:true, desc:'Launch OBS' },
+  { icon:'📺', label:'Scene 1',      zone:'av',     action:'OBS WebSocket', value:'SetCurrentScene:Main', active:true, desc:'Switch to Main scene' },
+  { icon:'🎤', label:'Mic Toggle',   zone:'av',     action:'OBS WebSocket', value:'ToggleMute:Mic', active:true, desc:'Toggle microphone' },
+  { icon:'📸', label:'Screenshot',   zone:'av',     action:'OBS WebSocket', value:'TakeScreenshot', active:false, desc:'Capture screenshot' },
+  { icon:'🎥', label:'vMix',         zone:'av',     action:'System', value:'open -a vMix', active:false, desc:'Launch vMix' },
+  { icon:'⏺️', label:'Record',       zone:'av',     action:'OBS WebSocket', value:'StartRecord', active:true, desc:'Start recording' },
+  { icon:'⏹️', label:'Stop Rec',     zone:'av',     action:'OBS WebSocket', value:'StopRecord', active:false, desc:'Stop recording' },
+  { icon:'⏯️', label:'Stream',       zone:'av',     action:'OBS WebSocket', value:'StartStream', active:false, desc:'Start streaming' },
+  { icon:'📝', label:'Notion',       zone:'notion', action:'Open URL', value:'https://notion.so', active:true, desc:'Open Notion' },
+  { icon:'🗂️', label:'Finder',       zone:'notion', action:'Hotkey', value:'Cmd+Space → finder', active:true, desc:'Open Finder' },
+  { icon:'⚙️', label:'Settings',     zone:'notion', action:'System', value:'open -a "System Settings"', active:false, desc:'System Preferences' },
+  { icon:'🔒', label:'Lock',         zone:'notion', action:'System', value:'pmset displaysleepnow', active:true, desc:'Lock screen' },
+  { icon:'💡', label:'Lights On',    zone:'light',  action:'Hotkey', value:'Ctrl+Shift+L', active:true, desc:'Key lights on' },
+  { icon:'🌙', label:'Lights Off',   zone:'light',  action:'Hotkey', value:'Ctrl+Shift+K', active:false, desc:'Key lights off' },
+  { icon:'☀️', label:'Bright+',      zone:'light',  action:'AppleScript', value:'tell app "Elgato Control Center" to set brightness to 100', active:false, desc:'Max brightness' },
+  { icon:'🔦', label:'Bright-',      zone:'light',  action:'AppleScript', value:'tell app "Elgato Control Center" to set brightness to 30', active:false, desc:'Low brightness' },
+  { icon:'🖨️', label:'Bambu',        zone:'print',  action:'Open URL', value:'https://bambulab.com', active:false, desc:'Bambu Lab dashboard' },
+  { icon:'🏗️', label:'Orca',         zone:'print',  action:'System', value:'open -a OrcaSlicer', active:false, desc:'Launch OrcaSlicer' },
+  { icon:'🎵', label:'Music',        zone:'music',  action:'System', value:'open -a Music', active:true, desc:'Apple Music' },
+  { icon:'⏭️', label:'Next',         zone:'music',  action:'Hotkey', value:'Media Next', active:true, desc:'Next track' },
+  { icon:'⏮️', label:'Prev',         zone:'music',  action:'Hotkey', value:'Media Prev', active:false, desc:'Previous track' },
+  { icon:'🔊', label:'Vol Up',       zone:'util',   action:'Hotkey', value:'Volume Up', active:false, desc:'Volume up' },
+  { icon:'🔇', label:'Mute',         zone:'util',   action:'Hotkey', value:'Mute', active:true, desc:'Toggle mute' },
+  { icon:'🎯', label:'DND',          zone:'util',   action:'AppleScript', value:'tell app "System Events" to toggle do not disturb', active:false, desc:'Toggle Do Not Disturb' },
+];
+
+const SEED_WHEEL = [
+  {
+    id: 'dev', label: 'Dev',
+    bindings: [
+      { app: 'VS Code',  up: 'Cmd+Shift+]', down: 'Cmd+Shift+[', click: 'Cmd+P' },
+      { app: 'Terminal',  up: 'Cmd+Shift+}', down: 'Cmd+Shift+{', click: 'Cmd+T' },
+      { app: 'Chrome',    up: 'Ctrl+Tab',     down: 'Ctrl+Shift+Tab', click: 'Cmd+L' },
+    ]
+  },
+  {
+    id: 'production', label: 'Production',
+    bindings: [
+      { app: 'OBS',    up: 'Ctrl+Up',     down: 'Ctrl+Down',   click: 'Space' },
+      { app: 'vMix',   up: 'Ctrl+Right',  down: 'Ctrl+Left',   click: 'Enter' },
+    ]
+  },
+  {
+    id: 'bambu', label: 'Bambu',
+    bindings: [
+      { app: 'OrcaSlicer', up: 'Cmd+=', down: 'Cmd+-', click: 'Cmd+G' },
+    ]
+  },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let state = {
+  device: 'xl',
+  keys: [],
+  selectedIdx: null,
+  wheelProfiles: JSON.parse(JSON.stringify(SEED_WHEEL)),
+  activeWheelProfile: 'dev',
+  exportFormat: 'deckforge',
+};
+
+function initKeys() {
+  const d = DEVICES.find(d => d.id === state.device);
+  const total = d.cols * d.rows;
+  state.keys = [];
+  for (let i = 0; i < total; i++) {
+    const seed = SEED_KEYS[i] || {};
+    state.keys.push({
+      icon: seed.icon || '',
+      label: seed.label || '',
+      zone: seed.zone || 'util',
+      action: seed.action || 'None',
+      value: seed.value || '',
+      active: seed.active ?? false,
+      desc: seed.desc || '',
+    });
+  }
+  state.selectedIdx = null;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function render() {
+  renderDeviceTabs();
+  renderGrid();
+  renderDialRow();
+  renderPanel();
+  renderWheel();
+}
+
+function renderDeviceTabs() {
+  const el = document.getElementById('deviceTabs');
+  el.innerHTML = DEVICES.map(d =>
+    `<button class="device-tab ${d.id === state.device ? 'active' : ''}" onclick="switchDevice('${d.id}')">${d.label}</button>`
+  ).join('');
+}
+
+function renderGrid() {
+  const d = DEVICES.find(d => d.id === state.device);
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${d.cols}, 80px)`;
+  grid.innerHTML = state.keys.map((k, i) => {
+    const zone = ZONES.find(z => z.id === k.zone);
+    const zColor = zone ? zone.color : '#6b7280';
+    const row = Math.floor(i / d.cols);
+    const col = i % d.cols;
+    return `<div class="key ${i === state.selectedIdx ? 'selected' : ''} ${k.active ? 'active' : ''}"
+      style="background:linear-gradient(145deg, ${zColor}18, ${zColor}08); border-color:${i === state.selectedIdx ? '#a78bfa' : zColor + '40'};"
+      onclick="selectKey(${i})">
+      <span class="key-icon">${escHtml(k.icon)}</span>
+      <span class="key-label">${escHtml(k.label)}</span>
+      <span class="key-pos">${row},${col}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDialRow() {
+  const d = DEVICES.find(d => d.id === state.device);
+  const el = document.getElementById('dialRow');
+  if (d.dials === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = Array.from({ length: d.dials }, (_, i) =>
+    `<div class="dial" onclick="toast('Dial ${i+1} — coming soon')">D${i+1}</div>`
+  ).join('');
+}
+
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if (state.selectedIdx === null) {
+    panel.innerHTML = `<div class="panel-section"><div class="panel-title">Key Editor</div>
+      <p style="font-size:12px;color:var(--text2);">Click a key on the grid to edit it.</p></div>
+      ${renderExportSection()}`;
+    return;
+  }
+  const k = state.keys[state.selectedIdx];
+  const d = DEVICES.find(d => d.id === state.device);
+  const row = Math.floor(state.selectedIdx / d.cols);
+  const col = state.selectedIdx % d.cols;
+
+  panel.innerHTML = `
+    <div class="panel-section">
+      <div class="panel-title">Key ${row},${col}</div>
+      <div class="icon-row">
+        <div class="icon-preview" style="background:${(ZONES.find(z=>z.id===k.zone)||{}).color || '#6b7280'}22;">${escHtml(k.icon)}</div>
+        <div class="field" style="flex:1;">
+          <label>Icon (emoji or text)</label>
+          <input type="text" value="${escAttr(k.icon)}" oninput="updateKey('icon', this.value)" maxlength="4" style="font-size:20px;text-align:center;">
+        </div>
+      </div>
+      <div class="emoji-grid">${EMOJIS.map(e => `<button class="emoji-btn" onclick="updateKey('icon','${e}')">${e}</button>`).join('')}</div>
+    </div>
+    <div class="panel-section">
+      <div class="field">
+        <label>Label</label>
+        <input type="text" value="${escAttr(k.label)}" oninput="updateKey('label', this.value)" maxlength="20">
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Zone Color</div>
+      <div class="zone-picker">
+        ${ZONES.map(z => `<div class="zone-chip ${k.zone === z.id ? 'active' : ''}"
+          style="background:${z.color}22;color:${z.color};"
+          onclick="updateKey('zone','${z.id}')">${z.label}</div>`).join('')}
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="toggle-row">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">Active Indicator</label>
+        <div class="toggle ${k.active ? 'on' : ''}" onclick="updateKey('active', ${!k.active})"></div>
+      </div>
+    </div>
+    <div class="panel-section">
+      <div class="field">
+        <label>Action Type</label>
+        <select onchange="updateKey('action', this.value)">
+          ${ACTION_TYPES.map(a => `<option ${k.action === a ? 'selected' : ''}>${a}</option>`).join('')}
+        </select>
+      </div>
+      ${k.action !== 'None' ? `<div class="field">
+        <label>Action Value</label>
+        <input type="text" value="${escAttr(k.value)}" oninput="updateKey('value', this.value)" placeholder="${getPlaceholder(k.action)}">
+      </div>` : ''}
+    </div>
+    <div class="panel-section">
+      <div class="field">
+        <label>Description</label>
+        <textarea oninput="updateKey('desc', this.value)" placeholder="What does this key do?">${escHtml(k.desc)}</textarea>
+      </div>
+    </div>
+    ${renderExportSection()}
+  `;
+}
+
+function renderExportSection() {
+  return `<div class="export-section">
+    <div class="panel-title" style="margin-bottom:8px;">Export / Import</div>
+    <div class="export-format">
+      ${['deckforge','streamdeck','csv'].map(f =>
+        `<button class="format-tab ${state.exportFormat === f ? 'active' : ''}" onclick="state.exportFormat='${f}';renderPanel();">${f === 'deckforge' ? 'DeckForge JSON' : f === 'streamdeck' ? 'Stream Deck' : 'CSV'}</button>`
+      ).join('')}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="exportDownload()">Download</button>
+      <button class="btn btn-secondary" onclick="exportClipboard()">Copy</button>
+      <button class="btn btn-secondary" onclick="importFile()">Import</button>
+    </div>
+  </div>`;
+}
+
+function renderWheel() {
+  const tabs = document.getElementById('wheelProfileTabs');
+  tabs.innerHTML = state.wheelProfiles.map(p =>
+    `<button class="wheel-profile-tab ${p.id === state.activeWheelProfile ? 'active' : ''}" onclick="state.activeWheelProfile='${p.id}';renderWheel();">${p.label}</button>`
+  ).join('') + `<button class="wheel-profile-tab" onclick="addWheelProfile()">+</button>`;
+
+  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
+  if (!profile) return;
+  const body = document.getElementById('wheelBody');
+  body.innerHTML = profile.bindings.map((b, i) => `<tr>
+    <td><input value="${escAttr(b.app)}" oninput="updateWheel(${i},'app',this.value)"></td>
+    <td><input value="${escAttr(b.up)}" oninput="updateWheel(${i},'up',this.value)"></td>
+    <td><input value="${escAttr(b.down)}" oninput="updateWheel(${i},'down',this.value)"></td>
+    <td><input value="${escAttr(b.click)}" oninput="updateWheel(${i},'click',this.value)"></td>
+  </tr>`).join('');
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+
+function switchDevice(id) {
+  state.device = id;
+  initKeys();
+  render();
+}
+
+function selectKey(idx) {
+  state.selectedIdx = idx;
+  render();
+}
+
+function updateKey(prop, val) {
+  if (state.selectedIdx === null) return;
+  state.keys[state.selectedIdx][prop] = val;
+  render();
+}
+
+function updateWheel(idx, prop, val) {
+  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
+  if (!profile) return;
+  profile.bindings[idx][prop] = val;
+}
+
+function addWheelRow() {
+  const profile = state.wheelProfiles.find(p => p.id === state.activeWheelProfile);
+  if (!profile) return;
+  profile.bindings.push({ app: '', up: '', down: '', click: '' });
+  renderWheel();
+}
+
+function addWheelProfile() {
+  const name = prompt('Profile name:');
+  if (!name) return;
+  const id = name.toLowerCase().replace(/\s+/g, '_');
+  state.wheelProfiles.push({ id, label: name, bindings: [{ app: '', up: '', down: '', click: '' }] });
+  state.activeWheelProfile = id;
+  renderWheel();
+}
+
+// ── Export / Import ──────────────────────────────────────────────────────────
+
+function buildExport() {
+  const d = DEVICES.find(d => d.id === state.device);
+  if (state.exportFormat === 'deckforge') {
+    return JSON.stringify({
+      format: 'deckforge',
+      version: 1,
+      device: state.device,
+      cols: d.cols,
+      rows: d.rows,
+      keys: state.keys.map((k, i) => ({
+        row: Math.floor(i / d.cols),
+        col: i % d.cols,
+        icon: k.icon,
+        label: k.label,
+        zone: k.zone,
+        active: k.active,
+        action: { type: k.action, value: k.value },
+        description: k.desc,
+      })),
+      wheelProfiles: state.wheelProfiles,
+      exportedAt: new Date().toISOString(),
+    }, null, 2);
+  }
+  if (state.exportFormat === 'streamdeck') {
+    return JSON.stringify({
+      Name: `DeckForge Export — ${d.label}`,
+      DeviceModel: state.device === 'xl' ? 'StreamDeckXL' : state.device === 'mk2' ? 'StreamDeckMK2' : state.device === 'mini' ? 'StreamDeckMini' : 'StreamDeckPlus',
+      Rows: d.rows,
+      Columns: d.cols,
+      Actions: state.keys.reduce((acc, k, i) => {
+        if (k.action !== 'None') {
+          acc[`${Math.floor(i / d.cols)},${i % d.cols}`] = {
+            Name: k.label,
+            State: k.active ? 0 : 1,
+            Settings: { action: k.action, value: k.value },
+          };
+        }
+        return acc;
+      }, {}),
+    }, null, 2);
+  }
+  // CSV
+  const header = 'Row,Col,Icon,Label,Zone,Active,ActionType,ActionValue,Description';
+  const rows = state.keys.map((k, i) =>
+    [Math.floor(i / d.cols), i % d.cols, `"${k.icon}"`, `"${k.label}"`, k.zone, k.active, k.action, `"${k.value}"`, `"${k.desc}"`].join(',')
+  );
+  return [header, ...rows].join('\n');
+}
+
+function exportDownload() {
+  const data = buildExport();
+  const ext = state.exportFormat === 'csv' ? 'csv' : 'json';
+  const mime = state.exportFormat === 'csv' ? 'text/csv' : 'application/json';
+  const blob = new Blob([data], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `deckforge-${state.device}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded!');
+}
+
+function exportClipboard() {
+  navigator.clipboard.writeText(buildExport()).then(() => toast('Copied to clipboard!'));
+}
+
+function importFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.format === 'deckforge' && data.keys) {
+          state.device = data.device || 'xl';
+          const d = DEVICES.find(d => d.id === state.device);
+          state.keys = data.keys.map(k => ({
+            icon: k.icon || '',
+            label: k.label || '',
+            zone: k.zone || 'util',
+            action: k.action?.type || 'None',
+            value: k.action?.value || '',
+            active: k.active ?? false,
+            desc: k.description || '',
+          }));
+          // Pad or trim to device size
+          const total = d.cols * d.rows;
+          while (state.keys.length < total) state.keys.push({ icon:'', label:'', zone:'util', action:'None', value:'', active:false, desc:'' });
+          state.keys = state.keys.slice(0, total);
+          if (data.wheelProfiles) state.wheelProfiles = data.wheelProfiles;
+          state.selectedIdx = null;
+          render();
+          toast('Layout imported!');
+        } else {
+          toast('Invalid DeckForge file');
+        }
+      } catch { toast('Failed to parse JSON'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+function getPlaceholder(action) {
+  const map = { 'Hotkey':'Cmd+Shift+K', 'Open URL':'https://...', 'Shell Command':'git push origin main', 'System':'open -a "App"', 'OBS WebSocket':'SetCurrentScene:Main', 'vMix API':'Function:Cut', 'AppleScript':'tell app ...' };
+  return map[action] || '';
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+initKeys();
+render();
+</script>
+</body>
+</html>
