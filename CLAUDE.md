@@ -1,5 +1,33 @@
 # DeckForge — Agent Instructions
 
+## Project Overview
+
+Single-file browser app for designing Elgato Stream Deck button layouts and Logitech MX Master wheel profiles. Supports 4 device types with zone-coded key categories and export to JSON/CSV/streamDeckProfile formats.
+
+## Stack
+
+- Single-file HTML (`index.html`) with inline CSS and JS
+- Google Fonts (DM Mono, Syne) via CDN
+- Zero dependencies, no npm, no build step
+
+## Key Decisions
+
+- Entire app must remain a single file. Splitting is prohibited.
+- State is in-memory JS object with full re-render on every change via `render()`.
+- State also persisted to localStorage via `saveState()`. JSON export/import for sharing.
+- 4 device types (XL, MK.2, Mini, Plus) with grid reflow on device switch.
+- All user input escaped via `escHtml()` / `escAttr()` before DOM insertion.
+
+## Documentation Maintenance
+
+- **Issues**: Track in CLAUDE.md issue tracker table below
+- **Session log**: Append to `/Users/daverobertson/Desktop/Code/95-docs-personal/today.csv` after each meaningful change
+
+## Issue Tracker
+
+| ID | Severity | Status | Title | Notes |
+|----|----------|--------|-------|-------|
+
 ## What This Is
 
 Single-file HTML Stream Deck profile generator. Zero dependencies, zero build step. Runs in any browser.
