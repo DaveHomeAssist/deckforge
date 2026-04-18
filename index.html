@@ -1351,11 +1351,11 @@ function saveState() {
   try {
     const data = { v: SCHEMA_VERSION, state, currentDevice, selectedZone };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-    // Update dirty indicator
     const dot = document.getElementById('dirtyDot');
     if (dot) { dot.style.opacity = '0'; dot.title = 'All changes saved'; }
   } catch (e) {
-    console.warn('DeckForge: save failed', e);
+    if (typeof toast === 'function') toast('Storage full — changes not saved', 'error');
+    else console.warn('DeckForge: save failed', e);
   }
 }
 
