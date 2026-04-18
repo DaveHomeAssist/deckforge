@@ -1201,6 +1201,10 @@ header {
 <div class="toast" id="toast"></div>
 
 <script>
+// ── ESCAPING ──────────────────────────────────────────────────────
+function escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function escAttr(s) { return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 // ── STATE ──────────────────────────────────────────────────────────
 const DEVICES = {
   xl:   { cols: 8, rows: 4, name: 'Stream Deck XL',    hasDial: false },
@@ -1517,7 +1521,7 @@ function renderGrid() {
       <div class="key-index">${i}</div>
       ${k?.active ? '<div class="key-active-dot"></div>' : ''}
       <div class="key-icon">${k?.icon || ''}</div>
-      <div class="key-label">${(k?.label || '').replace(/\n/g, '<br>')}</div>
+      <div class="key-label">${escHtml(k?.label || '').replace(/\n/g, '<br>')}</div>
     `;
     el.onclick = () => selectKey(i);
     grid.appendChild(el);
@@ -1697,19 +1701,19 @@ function renderWheelBindings(profileId) {
       <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">App ${i+1}</div>
       <div class="field" style="margin-bottom:6px">
         <label>Application</label>
-        <input type="text" value="${b.app}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${escAttr(b.app)}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">↑ up</div>
-        <input type="text" value="${b.up}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${escAttr(b.up)}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">↓ down</div>
-        <input type="text" value="${b.down}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${escAttr(b.down)}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
         <div class="wheel-dir-label">● click</div>
-        <input type="text" value="${b.click}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <input type="text" value="${escAttr(b.click)}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
     </div>
   `).join('') + `<button class="btn" style="width:100%;font-size:10px" onclick="addWheelBinding('${profileId}')">+ add app binding</button>`;
@@ -1996,6 +2000,7 @@ function handleImport(event) {
       updateWheelSelect();
       renderWheelBindings(getActiveWheelId());
       renderExport();
+      saveState();
       flashSuccess(document.querySelector('[data-tab="export"]'));
       toast(`Layout imported into "${prof.name}"`);
     } catch {
