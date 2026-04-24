@@ -1,0 +1,172 @@
+{
+  "project": {
+    "id": "deckforge",
+    "name": "DeckForge"
+  },
+  "status": "warn",
+  "freshness": "stale",
+  "updatedAt": "2026-04-24T16:05:12.015Z",
+  "summary": "no version · branch main · dirty tree · 3 open issues",
+  "recommendations": [
+    {
+      "priority": "P2",
+      "title": "Refresh project activity",
+      "reason": "Latest activity is outside the freshness window.",
+      "command": null
+    },
+    {
+      "priority": "P2",
+      "title": "Resolve working tree drift",
+      "reason": "Uncommitted changes make dashboard status harder to trust.",
+      "command": "git status --short"
+    },
+    {
+      "priority": "P2",
+      "title": "Define package metadata",
+      "reason": "No package.json was found, so dependency and script status are unclear.",
+      "command": null
+    },
+    {
+      "priority": "P3",
+      "title": "Create or document build output",
+      "reason": "No dist directory was found.",
+      "command": null
+    },
+    {
+      "priority": "P3",
+      "title": "Remove stale backup file",
+      "reason": "index.html.bak is present and may confuse project status.",
+      "command": null
+    }
+  ],
+  "sections": [
+    {
+      "title": "Project Surface",
+      "items": [
+        {
+          "label": "Version",
+          "value": "unversioned",
+          "status": "warn"
+        },
+        {
+          "label": "Entry HTML",
+          "value": "index.html",
+          "status": "ok"
+        },
+        {
+          "label": "Package.json",
+          "value": "absent",
+          "status": "warn"
+        }
+      ]
+    },
+    {
+      "title": "Build",
+      "items": [
+        {
+          "label": "Build artifact",
+          "value": "none",
+          "status": "warn"
+        },
+        {
+          "label": "Deps installed",
+          "value": "no",
+          "status": "warn"
+        }
+      ]
+    },
+    {
+      "title": "Git",
+      "items": [
+        {
+          "label": "Branch",
+          "value": "main",
+          "status": "ok"
+        },
+        {
+          "label": "Working tree",
+          "value": "dirty",
+          "status": "warn"
+        }
+      ]
+    }
+  ],
+  "kpis": [
+    {
+      "label": "Version",
+      "value": "unversioned",
+      "status": "warn"
+    },
+    {
+      "label": "Branch",
+      "value": "main",
+      "status": "ok"
+    },
+    {
+      "label": "Working tree",
+      "value": "dirty",
+      "status": "warn"
+    },
+    {
+      "label": "Entry HTML",
+      "value": "index.html",
+      "status": "ok"
+    },
+    {
+      "label": "Package.json",
+      "value": "absent",
+      "status": "warn"
+    },
+    {
+      "label": "Build artifact",
+      "value": "none",
+      "status": "warn"
+    },
+    {
+      "label": "Deps installed",
+      "value": "no",
+      "status": "warn"
+    }
+  ],
+  "issues": [
+    {
+      "id": "stray-index-bak",
+      "severity": "P3",
+      "status": "open",
+      "title": "index.html.bak present — consider removing backup",
+      "source": "index.html.bak"
+    },
+    {
+      "id": "git-dirty",
+      "severity": "P3",
+      "status": "open",
+      "title": "Working tree has uncommitted changes",
+      "source": ".git"
+    },
+    {
+      "id": "no-package-json",
+      "severity": "P2",
+      "status": "open",
+      "title": "No package.json — dependency and tooling surface undefined",
+      "source": "package.json"
+    }
+  ],
+  "links": [
+    {
+      "label": "CLAUDE.md",
+      "path": "CLAUDE.md"
+    },
+    {
+      "label": "Entry HTML",
+      "path": "index.html"
+    }
+  ],
+  "metadata": {
+    "generator": "tools/ops/build-ops-state.mjs",
+    "schemaVersion": 1,
+    "root": ".",
+    "lastCommitAt": "2026-04-18T00:35:50-04:00",
+    "lastCommitAgeMinutes": 9329,
+    "staleAfterMinutes": 1440
+  }
+}

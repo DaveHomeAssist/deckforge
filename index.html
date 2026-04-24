@@ -281,13 +281,45 @@ header {
 
 .profile-name {
   font-size: 11px;
+  color: var(--text);
   flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-app-count {
   font-size: 9px;
   color: var(--muted);
 }
+
+.profile-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.profile-action-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--s2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color var(--dur-hover) var(--ease-hover), color var(--dur-hover) var(--ease-hover), background var(--dur-hover) var(--ease-hover), transform var(--dur-press) var(--ease-press);
+}
+
+.profile-action-btn:hover { border-color: var(--green); color: var(--text); background: var(--s3); transform: translateY(-1px); }
+.profile-action-btn:active { transform: scale(0.96); transition-duration: var(--dur-press); }
+.profile-action-btn.danger:hover { border-color: var(--coral); color: var(--coral); }
 
 /* ── MAIN ── */
 .main {
@@ -1302,8 +1334,60 @@ function activeProfile() {
 function getKeys() { return activeProfile().keys; }
 function setKeys(keys) { activeProfile().keys = keys; }
 function getWheelProfiles() { return activeProfile().wheelProfiles || []; }
-function getActiveWheelId() { return activeProfile().activeWheelProfile || getWheelProfiles()[0]?.id || ''; }
+function getActiveWheelId() {
+  const wheelProfiles = getWheelProfiles();
+  const activeId = activeProfile().activeWheelProfile;
+  return wheelProfiles.some(p => p.id === activeId) ? activeId : wheelProfiles[0]?.id || '';
+}
 function setActiveWheelId(id) { activeProfile().activeWheelProfile = id; }
+function normalizeIdPart(value, fallback) {
+  return normalizeText(value, fallback)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || fallback;
+}
+function makeUniqueId(prefix, existingIds, seed) {
+  const used = new Set(existingIds);
+  const base = `${prefix}_${normalizeIdPart(seed, prefix)}`;
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}_${suffix++}`;
+  return id;
+}
+function cloneWheelProfileSet(wheelProfiles, activeWheelProfile) {
+  const source = Array.isArray(wheelProfiles) ? wheelProfiles : [];
+  const used = new Set(source.map(wp => wp.id));
+  const idMap = new Map();
+  const cloned = source.map((wp, idx) => {
+    const name = normalizeText(wp.name, `Profile ${idx + 1}`);
+    const id = makeUniqueId('wheel', used, name);
+    used.add(id);
+    idMap.set(wp.id, id);
+    return {
+      id,
+      name,
+      bindings: cloneJson(Array.isArray(wp.bindings) ? wp.bindings : []),
+    };
+  });
+  return {
+    wheelProfiles: cloned,
+    activeWheelProfile: idMap.get(activeWheelProfile) || cloned[0]?.id || '',
+  };
+}
+function cloneProfileRecord(profile, overrides = {}) {
+  const wheelCopy = cloneWheelProfileSet(profile.wheelProfiles || [], profile.activeWheelProfile);
+  return {
+    id: overrides.id || makeUniqueId('prof', state.profiles.map(p => p.id), profile.name || 'Profile'),
+    name: overrides.name || normalizeText(profile.name, 'Profile'),
+    device: overrides.device || profile.device || currentDevice,
+    keys: cloneJson(profile.keys || {}),
+    wheelProfiles: wheelCopy.wheelProfiles,
+    activeWheelProfile: wheelCopy.activeWheelProfile,
+    appTriggers: cloneJson(Array.isArray(profile.appTriggers) ? profile.appTriggers : []),
+    snapshots: cloneJson(Array.isArray(profile.snapshots) ? profile.snapshots : []),
+  };
+}
 
 // Seed default keys for XL
 const DEFAULT_KEYS_XL = [
@@ -1342,6 +1426,233 @@ const DEFAULT_KEYS_XL = [
 ];
 
 DEFAULT_KEYS_XL.forEach(k => { state.profiles[0].keys[k.i] = k; });
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isValidDeviceId(id) {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(DEVICES, id);
+}
+
+function isValidZoneId(id) {
+  return typeof id === 'string' && ZONES.some(z => z.id === id);
+}
+
+function normalizeText(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function normalizePromptName(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.replace(/\s+/g, ' ').trim().slice(0, 80);
+  return normalized || fallback;
+}
+
+function normalizeBool(value, fallback = false) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeAction(action) {
+  if (!isPlainObject(action)) return { type: 'none', value: '' };
+  return {
+    type: normalizeText(action.type, 'none'),
+    value: normalizeText(action.value, ''),
+  };
+}
+
+function normalizeKeyEntry(key, idx, deviceId) {
+  if (!isPlainObject(key)) return null;
+  const device = DEVICES[deviceId] || DEVICES[currentDevice] || DEVICES.xl;
+  const cols = device.cols;
+  const zone = isValidZoneId(key.zone) ? key.zone : 'dim';
+  const icon = normalizeText(key.icon, '');
+  const label = normalizeText(key.label, '');
+  const desc = normalizeText(key.desc, normalizeText(key.description, ''));
+  const action = normalizeAction(key.action);
+  if (!icon && !label && !desc && action.type === 'none' && action.value === '') return null;
+  return {
+    i: idx,
+    icon,
+    label,
+    zone,
+    active: normalizeBool(key.active, false),
+    action,
+    desc,
+    row: Math.floor(idx / cols),
+    col: idx % cols,
+    index: idx,
+  };
+}
+
+function normalizeWheelBinding(binding) {
+  if (!isPlainObject(binding)) return null;
+  return {
+    app: normalizeText(binding.app, ''),
+    up: normalizeText(binding.up, ''),
+    down: normalizeText(binding.down, ''),
+    click: normalizeText(binding.click, ''),
+  };
+}
+
+function normalizeWheelProfile(profile, idx) {
+  if (!isPlainObject(profile)) return null;
+  const bindings = Array.isArray(profile.bindings)
+    ? profile.bindings.map(normalizeWheelBinding).filter(Boolean)
+    : [];
+  return {
+    id: normalizeText(profile.id, `wheel_${idx}`),
+    name: normalizeText(profile.name, `Profile ${idx + 1}`),
+    bindings,
+  };
+}
+
+function normalizeTemplateEntry(template, idx) {
+  if (!isPlainObject(template)) return null;
+  return {
+    icon: normalizeText(template.icon, ''),
+    label: normalizeText(template.label, `Template ${idx + 1}`),
+    action: normalizeText(template.action, 'none'),
+  };
+}
+
+function normalizeProfile(profile, idx, fallbackDevice) {
+  if (!isPlainObject(profile)) return null;
+  const device = isValidDeviceId(profile.device) ? profile.device : fallbackDevice;
+  const keys = {};
+  if (isPlainObject(profile.keys)) {
+    Object.entries(profile.keys).forEach(([rawIdx, key]) => {
+      const idxNum = Number(rawIdx);
+      const deviceMeta = DEVICES[device] || DEVICES[currentDevice] || DEVICES.xl;
+      const max = deviceMeta.cols * deviceMeta.rows;
+      if (!Number.isInteger(idxNum) || idxNum < 0 || idxNum >= max) return;
+      const normalized = normalizeKeyEntry(key, idxNum, device);
+      if (normalized) keys[idxNum] = normalized;
+    });
+  }
+
+  const wheelProfiles = Array.isArray(profile.wheelProfiles)
+    ? profile.wheelProfiles.map((wp, wpIdx) => normalizeWheelProfile(wp, wpIdx)).filter(Boolean)
+    : [];
+  const activeWheelProfile = normalizeText(profile.activeWheelProfile, wheelProfiles[0]?.id || '');
+  const selectedWheel = wheelProfiles.some(wp => wp.id === activeWheelProfile) ? activeWheelProfile : (wheelProfiles[0]?.id || '');
+
+  return {
+    id: normalizeText(profile.id, `prof_${idx}`),
+    name: normalizeText(profile.name, `Profile ${idx + 1}`),
+    device,
+    keys,
+    wheelProfiles,
+    activeWheelProfile: selectedWheel,
+    appTriggers: Array.isArray(profile.appTriggers) ? cloneJson(profile.appTriggers.filter(isPlainObject)) : [],
+    snapshots: Array.isArray(profile.snapshots) ? cloneJson(profile.snapshots.filter(isPlainObject)) : [],
+  };
+}
+
+function normalizeStateSnapshot(rawState) {
+  if (!isPlainObject(rawState)) return null;
+  const fallbackDevice = isValidDeviceId(rawState.device) ? rawState.device : currentDevice;
+  const profiles = Array.isArray(rawState.profiles)
+    ? rawState.profiles.map((profile, idx) => normalizeProfile(profile, idx, fallbackDevice)).filter(Boolean)
+    : [];
+  if (!profiles.length) return null;
+
+  const activeProfileId = profiles.some(p => p.id === rawState.activeProfileId)
+    ? rawState.activeProfileId
+    : profiles[0].id;
+
+  return {
+    version: SCHEMA_VERSION,
+    device: fallbackDevice,
+    activeProfileId,
+    profiles,
+    ui: {
+      selectedKey: Number.isInteger(rawState.ui?.selectedKey) ? rawState.ui.selectedKey : null,
+      activeTab: rawState.ui?.activeTab === 'export' ? 'export' : 'edit',
+      diffBaseSnapshotId: normalizeText(rawState.ui?.diffBaseSnapshotId, ''),
+    },
+    library: {
+      templates: Array.isArray(rawState.library?.templates)
+        ? (() => {
+            const templates = rawState.library.templates.map((template, idx) => normalizeTemplateEntry(template, idx)).filter(Boolean);
+            return templates.length ? templates : cloneJson(state.library.templates);
+          })()
+        : cloneJson(state.library.templates),
+      zones: null,
+    },
+  };
+}
+
+function normalizePersistedBundle(bundle) {
+  if (!isPlainObject(bundle) || bundle.v !== SCHEMA_VERSION) return null;
+  const stateSnapshot = normalizeStateSnapshot(bundle.state);
+  if (!stateSnapshot) return null;
+
+  const current = isValidDeviceId(bundle.currentDevice) ? bundle.currentDevice : stateSnapshot.device;
+  const zone = isValidZoneId(bundle.selectedZone) ? bundle.selectedZone : 'green';
+  stateSnapshot.device = current;
+
+  return {
+    state: stateSnapshot,
+    currentDevice: current,
+    selectedZone: zone,
+  };
+}
+
+function normalizeMigratedBundle(bundle) {
+  const migrated = migrateV1toV2(bundle);
+  return normalizePersistedBundle({
+    v: SCHEMA_VERSION,
+    state: migrated,
+    currentDevice: bundle.currentDevice || migrated.device,
+    selectedZone: bundle.selectedZone,
+  });
+}
+
+function normalizeImportedLayout(data) {
+  if (!isPlainObject(data)) return null;
+  const deviceId = isPlainObject(data.device) && isValidDeviceId(data.device.id) ? data.device.id : currentDevice;
+  const keys = isPlainObject(data.keys) ? data.keys : null;
+  if (!keys) return null;
+
+  const device = DEVICES[deviceId] || DEVICES[currentDevice] || DEVICES.xl;
+  const max = device.cols * device.rows;
+  const normalizedKeys = {};
+
+  Object.entries(keys).forEach(([rawIdx, key]) => {
+    const idx = Number(rawIdx);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= max) return;
+    const normalized = normalizeKeyEntry(key, idx, deviceId);
+    if (normalized) normalizedKeys[idx] = normalized;
+  });
+
+  if (!Object.keys(normalizedKeys).length) return null;
+
+  const wheelProfiles = data.wheelProfiles === undefined
+    ? null
+    : Array.isArray(data.wheelProfiles)
+      ? data.wheelProfiles.map((wp, idx) => normalizeWheelProfile(wp, idx)).filter(Boolean)
+      : null;
+
+  if (data.wheelProfiles !== undefined && !wheelProfiles) return null;
+  if (data.wheelProfiles !== undefined && Array.isArray(data.wheelProfiles) && data.wheelProfiles.length && !wheelProfiles.length) return null;
+
+  const activeWheelProfile = normalizeText(data.activeWheelProfile, '');
+  const selectedWheel = wheelProfiles && wheelProfiles.some(wp => wp.id === activeWheelProfile)
+    ? activeWheelProfile
+    : (wheelProfiles?.[0]?.id || '');
+
+  return {
+    deviceId,
+    keys: normalizedKeys,
+    wheelProfiles,
+    activeWheelProfile: selectedWheel,
+  };
+}
 
 // ── PERSISTENCE ──────────────────────────────────────────────────
 const LS_KEY = 'deckforge-state';
@@ -1397,38 +1708,23 @@ function restoreState() {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data) return false;
+    if (!isPlainObject(data)) return false;
 
-    // Migrate from v1
+    let restored = null;
+    let migratedFromV1 = false;
     if (data.v === 1) {
-      state = migrateV1toV2(data);
-      if (data.currentDevice) currentDevice = data.currentDevice;
-      if (data.selectedZone) selectedZone = data.selectedZone;
-      saveState(); // persist migration
-      return true;
+      restored = normalizeMigratedBundle(data);
+      migratedFromV1 = !!restored;
+    } else if (data.v === SCHEMA_VERSION) {
+      restored = normalizePersistedBundle(data);
     }
 
-    if (data.v !== SCHEMA_VERSION) return false;
-    if (data.state) {
-      state = data.state;
-      // Ensure required fields
-      if (!state.profiles || !state.profiles.length) {
-        state.profiles = [{ id: 'prof_default', name: 'Default', device: 'xl', keys: {}, wheelProfiles: [], activeWheelProfile: '', appTriggers: [], snapshots: [] }];
-      }
-      if (!state.activeProfileId) state.activeProfileId = state.profiles[0].id;
-      // Ensure every profile has required fields
-      state.profiles.forEach(p => {
-        if (!p.keys) p.keys = {};
-        if (!p.wheelProfiles) p.wheelProfiles = [];
-        if (!p.activeWheelProfile) p.activeWheelProfile = p.wheelProfiles[0]?.id || '';
-        if (!p.appTriggers) p.appTriggers = [];
-        if (!p.snapshots) p.snapshots = [];
-      });
-      if (!state.ui) state.ui = { selectedKey: null, activeTab: 'edit', diffBaseSnapshotId: null };
-      if (!state.library) state.library = { templates: [], zones: null };
-    }
-    if (data.currentDevice) currentDevice = data.currentDevice;
-    if (data.selectedZone) selectedZone = data.selectedZone;
+    if (!restored) return false;
+    state = restored.state;
+    currentDevice = restored.currentDevice;
+    selectedZone = restored.selectedZone;
+    if (!isValidDeviceId(state.device)) state.device = currentDevice;
+    if (migratedFromV1) saveState();
     return true;
   } catch (e) {
     console.warn('DeckForge: restore failed, using defaults', e);
@@ -1461,11 +1757,15 @@ function renderSidebar() {
   // Profiles
   const pl = document.getElementById('profileList');
   pl.innerHTML = state.profiles.map(p => `
-    <div class="profile-item ${p.id === state.activeProfileId ? 'active' : ''}" onclick="activateProfile('${p.id}')">
+    <div class="profile-item ${p.id === state.activeProfileId ? 'active' : ''}" onclick='activateProfile(${JSON.stringify(p.id)})'>
       <div class="profile-dot ${p.id === state.activeProfileId ? '' : 'inactive'}"></div>
-      <div class="profile-name">${p.name}</div>
+      <div class="profile-name">${escHtml(p.name)}</div>
       <div class="profile-app-count">${Object.keys(p.keys || {}).length}k</div>
-      ${state.profiles.length > 1 ? `<span style="font-size:10px;color:var(--muted);cursor:pointer;margin-left:4px" onclick="event.stopPropagation();deleteProfile('${p.id}')">×</span>` : ''}
+      <div class="profile-actions">
+        <button class="profile-action-btn" title="Rename profile" onclick='event.stopPropagation();renameProfile(${JSON.stringify(p.id)})'>R</button>
+        <button class="profile-action-btn" title="Duplicate profile" onclick='event.stopPropagation();duplicateProfile(${JSON.stringify(p.id)})'>⧉</button>
+        ${state.profiles.length > 1 ? `<button class="profile-action-btn danger" title="Delete profile" onclick='event.stopPropagation();deleteProfile(${JSON.stringify(p.id)})'>×</button>` : ''}
+      </div>
     </div>
   `).join('');
 
@@ -1493,9 +1793,14 @@ function renderSidebar() {
   const ws = document.getElementById('wheelSidebar');
   const awId = getActiveWheelId();
   ws.innerHTML = getWheelProfiles().map(p => `
-    <div class="profile-item ${p.id === awId ? 'active' : ''}" onclick="setActiveWheelProfile('${p.id}')">
+    <div class="profile-item ${p.id === awId ? 'active' : ''}" onclick='setActiveWheelProfile(${JSON.stringify(p.id)})'>
       <div class="profile-dot ${p.id === awId ? '' : 'inactive'}"></div>
-      <div class="profile-name">${p.name}</div>
+      <div class="profile-name">${escHtml(p.name)}</div>
+      <div class="profile-actions">
+        <button class="profile-action-btn" title="Rename wheel profile" onclick='event.stopPropagation();renameWheelProfile(${JSON.stringify(p.id)})'>R</button>
+        <button class="profile-action-btn" title="Duplicate wheel profile" onclick='event.stopPropagation();duplicateWheelProfile(${JSON.stringify(p.id)})'>⧉</button>
+        <button class="profile-action-btn danger" title="Delete wheel profile" onclick='event.stopPropagation();deleteWheelProfile(${JSON.stringify(p.id)})'>×</button>
+      </div>
     </div>
   `).join('');
 }
@@ -1682,20 +1987,25 @@ function selectZone(zid) {
 function updateWheelSelect() {
   const sel = document.getElementById('wheelProfileSelect');
   const awId = getActiveWheelId();
-  sel.innerHTML = getWheelProfiles().map(p =>
-    `<option value="${p.id}" ${p.id === awId ? 'selected' : ''}>${p.name}</option>`
-  ).join('');
+  const wheelProfiles = getWheelProfiles();
+  sel.innerHTML = wheelProfiles.length
+    ? wheelProfiles.map(p =>
+        `<option value="${escAttr(p.id)}" ${p.id === awId ? 'selected' : ''}>${escHtml(p.name)}</option>`
+      ).join('')
+    : '<option value="">No wheel profiles</option>';
 }
 
 function loadWheelProfile(id) {
-  setActiveWheelId(id);
-  renderWheelBindings(id);
+  setActiveWheelProfile(id);
 }
 
 function renderWheelBindings(profileId) {
   const profile = getWheelProfiles().find(p => p.id === profileId);
-  if (!profile) return;
   const container = document.getElementById('wheelBindings');
+  if (!profile) {
+    container.innerHTML = `<div class="no-key-selected" style="padding:12px 8px">No wheel profiles yet. Add one from the sidebar.</div>`;
+    return;
+  }
   container.innerHTML = profile.bindings.map((b, i) => `
     <div style="margin-bottom:14px;padding:10px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
       <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">App ${i+1}</div>
@@ -1745,45 +2055,136 @@ function saveWheelProfile() {
 }
 
 function setActiveWheelProfile(id) {
+  if (!id) return;
   setActiveWheelId(id);
   updateWheelSelect();
   renderWheelBindings(id);
   renderSidebar();
+  renderExport();
+  saveState();
 }
 
 function addWheelProfile() {
-  const name = prompt('Wheel profile name:', 'New Profile');
-  if (!name) return;
-  const id = name.toLowerCase().replace(/\s+/g, '_');
-  getWheelProfiles().push({ id, name, bindings: [
+  const name = normalizePromptName(prompt('Wheel profile name:', 'New Profile'), 'New Profile');
+  const wheelProfiles = getWheelProfiles();
+  const id = makeUniqueId('wheel', wheelProfiles.map(p => p.id), name);
+  wheelProfiles.push({ id, name, bindings: [
     { app: 'Default', up: '', down: '', click: '' }
   ]});
   updateWheelSelect();
+  setActiveWheelProfile(id);
   renderSidebar();
   saveState();
   toast(`Wheel profile "${name}" added`);
 }
 
+function renameWheelProfile(id) {
+  const profile = getWheelProfiles().find(p => p.id === id);
+  if (!profile) return;
+  const name = normalizePromptName(prompt('Wheel profile name:', profile.name), profile.name);
+  if (name === profile.name) return;
+  profile.name = name;
+  updateWheelSelect();
+  renderSidebar();
+  renderExport();
+  saveState();
+  toast(`Wheel profile renamed to "${name}"`);
+}
+
+function duplicateWheelProfile(id) {
+  const source = getWheelProfiles().find(p => p.id === id);
+  if (!source) return;
+  const defaultName = `${source.name} Copy`;
+  const name = normalizePromptName(prompt('Duplicate wheel profile as:', defaultName), defaultName);
+  const wheelProfiles = getWheelProfiles();
+  const copy = {
+    id: makeUniqueId('wheel', wheelProfiles.map(p => p.id), name),
+    name,
+    bindings: cloneJson(Array.isArray(source.bindings) ? source.bindings : []),
+  };
+  wheelProfiles.push(copy);
+  setActiveWheelProfile(copy.id);
+  renderSidebar();
+  renderExport();
+  saveState();
+  toast(`Wheel profile "${name}" created`);
+}
+
+function deleteWheelProfile(id) {
+  const wheelProfiles = getWheelProfiles();
+  if (!wheelProfiles.length) return;
+  const target = wheelProfiles.find(p => p.id === id);
+  if (!target) return;
+  if (!confirm(`Delete wheel profile "${target.name}"?`)) return;
+  const next = wheelProfiles.filter(p => p.id !== id);
+  activeProfile().wheelProfiles = next;
+  if (getActiveWheelId() === id) {
+    activeProfile().activeWheelProfile = next[0]?.id || '';
+  }
+  updateWheelSelect();
+  renderWheelBindings(getActiveWheelId());
+  renderSidebar();
+  renderExport();
+  saveState();
+  toast(`Wheel profile "${target.name}" deleted`);
+}
+
 // ── PROFILES ──────────────────────────────────────────────────────
 function addProfile() {
-  const name = prompt('Profile name:', 'New Profile');
-  if (!name) return;
-  const id = 'prof_' + Date.now();
-  const dupe = confirm('Copy current layout to new profile?');
-  const src = activeProfile();
-
+  const name = normalizePromptName(prompt('Profile name:', 'New Profile'), 'New Profile');
+  const id = makeUniqueId('prof', state.profiles.map(p => p.id), name);
   state.profiles.push({
     id,
     name,
     device: currentDevice,
-    keys: dupe ? JSON.parse(JSON.stringify(src.keys)) : {},
-    wheelProfiles: dupe ? JSON.parse(JSON.stringify(src.wheelProfiles)) : [],
-    activeWheelProfile: dupe ? src.activeWheelProfile : '',
+    keys: {},
+    wheelProfiles: [],
+    activeWheelProfile: '',
     appTriggers: [],
     snapshots: [],
   });
-
+  state.activeProfileId = id;
+  selectedKey = null;
+  renderGrid();
   renderSidebar();
+  updateWheelSelect();
+  renderWheelBindings(getActiveWheelId());
+  renderExport();
+  saveState();
+  toast(`Profile "${name}" created`);
+}
+
+function renameProfile(id) {
+  const profile = state.profiles.find(p => p.id === id);
+  if (!profile) return;
+  const name = normalizePromptName(prompt('Profile name:', profile.name), profile.name);
+  if (name === profile.name) return;
+  profile.name = name;
+  renderSidebar();
+  renderExport();
+  saveState();
+  toast(`Profile renamed to "${name}"`);
+}
+
+function duplicateProfile(id) {
+  const source = state.profiles.find(p => p.id === id);
+  if (!source) return;
+  const defaultName = `${source.name} Copy`;
+  const name = normalizePromptName(prompt('Duplicate profile as:', defaultName), defaultName);
+  const copy = cloneProfileRecord(source, {
+    id: makeUniqueId('prof', state.profiles.map(p => p.id), name),
+    name,
+  });
+  const sourceIndex = state.profiles.findIndex(p => p.id === id);
+  const insertAt = sourceIndex >= 0 ? sourceIndex + 1 : state.profiles.length;
+  state.profiles.splice(insertAt, 0, copy);
+  state.activeProfileId = copy.id;
+  selectedKey = null;
+  renderGrid();
+  renderSidebar();
+  updateWheelSelect();
+  renderWheelBindings(getActiveWheelId());
+  renderExport();
   saveState();
   toast(`Profile "${name}" created`);
 }
@@ -1909,16 +2310,30 @@ function buildJSON() {
   }
 
   if (fmt === 'streamdeck') {
-    // Approximate Stream Deck profile format
+    // Approximate Stream Deck profile format, but preserve full DeckForge payload for round-tripping.
     return JSON.stringify({
       Name: profileName,
-      Actions: Object.values(out.keys).filter(Boolean).map(k => ({
-        State: 0,
-        States: [{ Image: '', Title: k.label?.replace(/\n/g,' ') || '', TitleParameters: {} }],
-        Settings: { hotkey: k.action?.value || '' },
-        UUID: 'com.elgato.hotkey',
-        name: k.label?.replace(/\n/g,' ') || '',
-      }))
+      FormatVersion: 1,
+      Device: out.device,
+      Actions: Object.values(out.keys).filter(Boolean).map(k => {
+        const label = k.label?.replace(/\n/g, ' ') || '';
+        return {
+          State: 0,
+          States: [{ Image: '', Title: label, TitleParameters: {} }],
+          Settings: {
+            hotkey: k.action?.value || '',
+            actionType: k.action?.type || 'none',
+            actionValue: k.action?.value || '',
+            zone: k.zone,
+            active: !!k.active,
+            description: k.description || '',
+          },
+          UUID: k.action?.type === 'hotkey' ? 'com.elgato.hotkey' : `deckforge.${k.action?.type || 'none'}`,
+          name: label,
+          DeckForge: k,
+        };
+      }),
+      DeckForge: out,
     }, null, 2);
   }
 
@@ -1982,19 +2397,22 @@ function handleImport(event) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
+      const importSource = isPlainObject(data.DeckForge) ? data.DeckForge : data;
+      const importData = normalizeImportedLayout(importSource);
+      if (!importData) throw new Error('Invalid layout payload');
+
       const prof = activeProfile();
-      if (data.keys) {
-        prof.keys = {};
-        Object.entries(data.keys).forEach(([idx, k]) => {
-          if (k) prof.keys[parseInt(idx)] = k;
-        });
-      }
-      if (data.device?.id) {
-        currentDevice = data.device.id;
+      prof.keys = importData.keys;
+      if (importData.deviceId) {
+        currentDevice = importData.deviceId;
+        state.device = importData.deviceId;
         document.getElementById('deviceSelect').value = currentDevice;
       }
-      if (data.wheelProfiles) prof.wheelProfiles = data.wheelProfiles;
-      if (data.activeWheelProfile) prof.activeWheelProfile = data.activeWheelProfile;
+      if (importData.wheelProfiles !== null) {
+        prof.wheelProfiles = importData.wheelProfiles;
+        prof.activeWheelProfile = importData.activeWheelProfile;
+      }
+      selectedKey = null;
       renderGrid();
       renderSidebar();
       updateWheelSelect();

@@ -14,7 +14,7 @@ Single-file browser app for designing Elgato Stream Deck button layouts and Logi
 
 - Entire app must remain a single file. Splitting is prohibited.
 - State is in-memory JS object with full re-render on every change via `render()`.
-- State also persisted to localStorage via `saveState()`. JSON export/import for sharing.
+- State persists to localStorage via `saveState()` and `restoreState()`. JSON export/import remains available for sharing.
 - 4 device types (XL, MK.2, Mini, Plus) with grid reflow on device switch.
 - All user input escaped via `escHtml()` / `escAttr()` before DOM insertion.
 
@@ -27,6 +27,8 @@ Single-file browser app for designing Elgato Stream Deck button layouts and Logi
 
 | ID | Severity | Status | Title | Notes |
 |----|----------|--------|-------|-------|
+| DF-1 | High | Done | Harden persisted state and imports | Restored state and import payloads are normalized before assignment so malformed JSON/localStorage data cannot overwrite live state. |
+| DF-2 | Medium | Done | Profile workflow polish and export fidelity | Main profiles now support rename/duplicate/delete actions, wheel profiles can be renamed/duplicated/deleted, and Stream Deck exports preserve a full DeckForge payload for round-tripping. |
 
 ## What This Is
 
@@ -35,7 +37,7 @@ Single-file HTML Stream Deck profile generator. Zero dependencies, zero build st
 ## Architecture
 
 - **Single file:** `index.html` — all HTML, CSS, and JS inline.
-- **No backend.** No localStorage (exports to JSON files instead).
+- **No backend.** State uses localStorage for session recovery; exports to JSON files remain available for sharing.
 - **No dependencies.** No frameworks, no npm, no build tools.
 - **State:** In-memory JS object (`state`). Render is a full re-render on every change.
 
@@ -45,7 +47,7 @@ Single-file HTML Stream Deck profile generator. Zero dependencies, zero build st
 - **Zones:** 8 color-coded categories (Dev, AV, Notion, Lighting, Print, Deploy, Music, Utility). Each key belongs to one zone.
 - **Actions:** Hotkey, Open URL, Shell Command, System, OBS WebSocket, vMix API, AppleScript, None.
 - **Wheel Profiles:** Logitech Options+ MX Master wheel bindings. Per-profile, per-app scroll/click mappings.
-- **Export formats:** DeckForge JSON (full schema), Stream Deck .streamDeckProfile approximation, CSV.
+- **Export formats:** DeckForge JSON (full schema), Stream Deck .streamDeckProfile approximation with embedded DeckForge payload, CSV.
 
 ## File Structure
 
@@ -69,7 +71,7 @@ deckforge/
 - Do not add external dependencies (React, Tailwind, etc.).
 - Do not split into multiple files.
 - Do not add a build step.
-- State persists to localStorage via saveState(). Export/import remains available for sharing.
+- State persists to localStorage via saveState() / restoreState(). Export/import remains available for sharing.
 - Do not add server-side functionality.
 
 ## Testing
@@ -79,8 +81,10 @@ Open `index.html` in a browser. No test framework. Manual verification:
 - Click a key — editor panel appears with correct data.
 - Change icon, label, zone, action — grid updates immediately.
 - Export JSON — file downloads with correct schema.
+- Duplicate/rename a profile — the copy keeps the source layout and wheel profiles, and the active profile updates to the new copy.
 - Import JSON — layout restores correctly.
-- Wheel profiles — tabs switch, bindings editable, new profiles addable.
+- Wheel profiles — tabs switch, bindings editable, new profiles addable, and rename/duplicate/delete actions keep the active wheel selection valid.
+- Stream Deck export/import — exported `.streamDeckProfile` files should retain a DeckForge payload so importing the file back into DeckForge restores the original layout.
 
 ## Design Tokens
 
