@@ -1076,7 +1076,7 @@ header {
 <!-- MAIN -->
 <main class="main">
   <div class="device-bar">
-    <select class="device-select" id="deviceSelect" onchange="setDevice(this.value)">
+    <select class="device-select" id="deviceSelect" aria-label="Stream Deck device" onchange="setDevice(this.value)">
       <option value="xl">Stream Deck XL — 8×4 (32 keys)</option>
       <option value="mk2">Stream Deck MK.2 — 5×3 (15 keys)</option>
       <option value="mini">Stream Deck Mini — 3×2 (6 keys)</option>
@@ -1494,8 +1494,11 @@ function normalizeKeyEntry(key, idx, deviceId) {
   const active = normalizeBool(key.active, false);
   // Preserve any key the user touched — including zone-only or "marked active"
   // placeholders — so picking a zone on an otherwise blank key doesn't vanish
-  // on reload.
-  if (!icon && !label && !desc && action.type === 'none' && action.value === '' && !userZone && !active) return null;
+  // on reload. Treat 'dim' as the implicit default though: updateKey()
+  // auto-stamps zone='dim' on every edit, so a user who clears all fields
+  // back to empty would otherwise resurrect the slot as a kz-dim ghost.
+  const isExplicitZone = userZone && userZone !== 'dim';
+  if (!icon && !label && !desc && action.type === 'none' && action.value === '' && !isExplicitZone && !active) return null;
   return {
     i: idx,
     icon,
@@ -1558,14 +1561,30 @@ function normalizeProfile(profile, idx, fallbackDevice) {
     });
   }
 
-  const wheelProfiles = Array.isArray(profile.wheelProfiles)
-    ? profile.wheelProfiles.map((wp, wpIdx) => normalizeWheelProfile(wp, wpIdx)).filter(Boolean)
-    : [];
-  // Dedup wheel-profile ids after normalizeIdPart so distinct-looking ids that
-  // collapse to the same sanitized value don't shadow each other in the UI.
+  // Build wheelProfiles with a raw-index → mapped-index table so the active
+  // wheel selector can still resolve through dedup renames (same pattern as
+  // normalizeStateSnapshot below).
+  const wheelRaw = Array.isArray(profile.wheelProfiles) ? profile.wheelProfiles : [];
+  const wpRawToMapped = [];
+  const wheelProfiles = [];
+  wheelRaw.forEach((wp, wpIdx) => {
+    const normalized = normalizeWheelProfile(wp, wpIdx);
+    if (normalized) {
+      wpRawToMapped[wpIdx] = wheelProfiles.length;
+      wheelProfiles.push(normalized);
+    }
+  });
   dedupIds(wheelProfiles, 'wheel');
-  const activeWheelProfile = normalizeIdPart(profile.activeWheelProfile, wheelProfiles[0]?.id || '');
-  const selectedWheel = wheelProfiles.some(wp => wp.id === activeWheelProfile) ? activeWheelProfile : (wheelProfiles[0]?.id || '');
+  const wheelRequested = typeof profile.activeWheelProfile === 'string' ? profile.activeWheelProfile : '';
+  let selectedWheel = '';
+  const wpRawIdx = wheelRaw.findIndex(wp => isPlainObject(wp) && wp.id === wheelRequested);
+  if (wpRawIdx >= 0 && wpRawToMapped[wpRawIdx] != null) {
+    selectedWheel = wheelProfiles[wpRawToMapped[wpRawIdx]].id;
+  } else {
+    const sanitized = normalizeIdPart(wheelRequested, '');
+    if (sanitized && wheelProfiles.some(wp => wp.id === sanitized)) selectedWheel = sanitized;
+  }
+  if (!selectedWheel) selectedWheel = wheelProfiles[0]?.id || '';
 
   return {
     // id sanitized to [a-z0-9_] to prevent attribute-breakout when interpolated
@@ -1584,17 +1603,37 @@ function normalizeProfile(profile, idx, fallbackDevice) {
 function normalizeStateSnapshot(rawState) {
   if (!isPlainObject(rawState)) return null;
   const fallbackDevice = isValidDeviceId(rawState.device) ? rawState.device : currentDevice;
-  const profiles = Array.isArray(rawState.profiles)
-    ? rawState.profiles.map((profile, idx) => normalizeProfile(profile, idx, fallbackDevice)).filter(Boolean)
-    : [];
+  // Build profiles with a raw-index → mapped-index table so we can still
+  // resolve activeProfileId by position when dedup has renamed an id.
+  const profilesRaw = Array.isArray(rawState.profiles) ? rawState.profiles : [];
+  const rawToMapped = [];
+  const profiles = [];
+  profilesRaw.forEach((profile, rawIdx) => {
+    const normalized = normalizeProfile(profile, rawIdx, fallbackDevice);
+    if (normalized) {
+      rawToMapped[rawIdx] = profiles.length;
+      profiles.push(normalized);
+    }
+  });
   if (!profiles.length) return null;
   // Dedup profile ids after normalizeIdPart — see comment in normalizeProfile.
   dedupIds(profiles, 'prof');
 
-  const requestedActiveId = normalizeIdPart(rawState.activeProfileId, '');
-  const activeProfileId = profiles.some(p => p.id === requestedActiveId)
-    ? requestedActiveId
-    : profiles[0].id;
+  // Resolve activeProfileId in this order: by exact raw-id match against the
+  // original payload (preserves user intent across dedup), then by sanitized
+  // match against the post-dedup ids (covers in-app saves where ids are
+  // already clean), then fall back to the first profile.
+  const requestedRaw = typeof rawState.activeProfileId === 'string' ? rawState.activeProfileId : '';
+  let activeProfileId = null;
+  const rawIdx = profilesRaw.findIndex(p => isPlainObject(p) && p.id === requestedRaw);
+  if (rawIdx >= 0 && rawToMapped[rawIdx] != null) {
+    activeProfileId = profiles[rawToMapped[rawIdx]].id;
+  }
+  if (!activeProfileId) {
+    const sanitized = normalizeIdPart(requestedRaw, '');
+    if (sanitized && profiles.some(p => p.id === sanitized)) activeProfileId = sanitized;
+  }
+  if (!activeProfileId) activeProfileId = profiles[0].id;
 
   return {
     version: SCHEMA_VERSION,
@@ -1661,7 +1700,11 @@ function normalizeImportedLayout(data) {
     if (normalized) normalizedKeys[idx] = normalized;
   });
 
-  if (!Object.keys(normalizedKeys).length) return null;
+  // Empty layout (every slot null) is a legitimate import — e.g., after the
+  // user clicked "clear all" and exported as a blank-slate template. We only
+  // reject if data.keys itself wasn't a plain object (which is already gated
+  // by `const keys = isPlainObject(data.keys) ? data.keys : null;` above).
+
 
   const wheelProfiles = data.wheelProfiles === undefined
     ? null
@@ -1702,25 +1745,35 @@ function saveState() {
 
 function migrateV1toV2(data) {
   // V1 had state.keys, state.wheelProfiles, state.activeWheelProfile at top level
-  // V2 nests them inside each profile
-  const old = data.state;
+  // V2 nests them inside each profile.
+  const old = isPlainObject(data.state) ? data.state : {};
   const profileName = old.profileName || 'Migrated Profile';
-  const profiles = (old.profiles || []).map((p, i) => ({
+  // v1 single-profile shape stored everything at the top level with no
+  // profiles array. Synthesize one profile from old.keys so the migration
+  // doesn't silently discard the layout.
+  const rawProfiles = Array.isArray(old.profiles) && old.profiles.length
+    ? old.profiles
+    : [{ name: profileName, keys: old.keys || {}, active: true }];
+  // Resolve active against the ORIGINAL raw profiles before stripping the
+  // active flag — the find on the mapped array can never match because the
+  // map literal below intentionally omits p.active.
+  const activeRawIdx = rawProfiles.findIndex(p => isPlainObject(p) && p.active);
+  const profiles = rawProfiles.map((p, i) => ({
     id: p.id || 'prof_' + i,
     name: p.name || profileName,
     device: data.currentDevice || old.device || 'xl',
     // Fall back to old.keys for the first profile too — v1 single-profile
     // bundles don't always set p.active, and dropping old.keys silently loses
     // the user's layout on upgrade.
-    keys: p.keys || ((p.active || i === 0) ? { ...old.keys } : {}),
+    keys: p.keys || ((p.active || i === 0) ? { ...(old.keys || {}) } : {}),
     wheelProfiles: old.wheelProfiles || [],
     activeWheelProfile: old.activeWheelProfile || '',
     appTriggers: [],
     snapshots: [],
   }));
-  const activeId = profiles.find(p => p.active)?.id || profiles[0]?.id || 'prof_default';
-  // Remove old v1 'active' flag — v2 uses state.activeProfileId
-  profiles.forEach(p => delete p.active);
+  const activeId = (activeRawIdx >= 0 && profiles[activeRawIdx]?.id)
+    || profiles[0]?.id
+    || 'prof_default';
   return {
     version: 2,
     device: data.currentDevice || old.device || 'xl',
@@ -1942,8 +1995,15 @@ function setEmoji(e) {
   document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.textContent === e));
 }
 
+// All mutation entrypoints below require an integer slot index — dials use
+// 'dial_N' string ids which must not flow into getKeys()[selectedKey], or
+// they pollute the profile keys map and get silently dropped on reload.
+function isIntegerSelection() {
+  return Number.isInteger(selectedKey);
+}
+
 function setKeyZone(zid) {
-  if (selectedKey === null) return;
+  if (!isIntegerSelection()) return;
   const keys = getKeys();
   if (!keys[selectedKey]) keys[selectedKey] = { i: selectedKey };
   keys[selectedKey].zone = zid;
@@ -1952,7 +2012,7 @@ function setKeyZone(zid) {
 }
 
 function updateKey() {
-  if (selectedKey === null) return;
+  if (!isIntegerSelection()) return;
   const keys = getKeys();
   const k = keys[selectedKey] || { i: selectedKey };
   k.icon   = document.getElementById('fIcon').value;
@@ -1975,7 +2035,7 @@ function updateKey() {
 }
 
 function applyTemplate(actionType, icon) {
-  if (selectedKey === null) { toast('Select a key first', 'error'); return; }
+  if (!isIntegerSelection()) { toast('Select a key first', 'error'); return; }
   const keys = getKeys();
   if (!keys[selectedKey]) keys[selectedKey] = { i: selectedKey };
   const k = keys[selectedKey];
@@ -1991,12 +2051,10 @@ function applyTemplate(actionType, icon) {
 }
 
 function clearSelected() {
-  if (selectedKey === null) return;
+  if (!isIntegerSelection()) return;
   delete getKeys()[selectedKey];
   renderGrid();
-  document.getElementById('noKeyMsg').style.display = 'block';
-  document.getElementById('keyEditor').style.display = 'none';
-  selectedKey = null;
+  clearSelection();
   renderSidebar();
   renderExport();
   saveState();
@@ -2006,6 +2064,7 @@ function clearSelected() {
 function clearAll() {
   if (!confirm('Clear all keys?')) return;
   activeProfile().keys = {};
+  clearSelection();
   renderGrid();
   renderSidebar();
   renderExport();
@@ -2247,9 +2306,7 @@ function deleteProfile(id) {
     state.activeProfileId = state.profiles[0].id;
   }
 
-  selectedKey = null;
-  document.getElementById('noKeyMsg').style.display = 'block';
-  document.getElementById('keyEditor').style.display = 'none';
+  clearSelection();
 
   renderGrid();
   renderSidebar();
@@ -2263,9 +2320,14 @@ function activateProfile(id) {
   if (id === state.activeProfileId) return; // already active
   state.activeProfileId = id;
 
-  selectedKey = null;
-  document.getElementById('noKeyMsg').style.display = 'block';
-  document.getElementById('keyEditor').style.display = 'none';
+  // Profile's own device wins; the header tabs/select follow.
+  const dev = activeProfile().device;
+  if (isValidDeviceId(dev) && dev !== currentDevice) {
+    currentDevice = dev;
+    state.device = dev;
+    syncDeviceUI(dev);
+  }
+  clearSelection();
 
   renderGrid();
   renderSidebar();
@@ -2286,9 +2348,30 @@ function syncDeviceUI(id) {
   if (sel) sel.value = id;
   document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === id));
 }
+// Reset the right-hand editor and selection-status indicator. Used by
+// clearSelected/clearAll/activateProfile/deleteProfile/setDevice (the last
+// one only when the selection falls outside the new device's grid).
+function clearSelection() {
+  selectedKey = null;
+  const noKeyMsg = document.getElementById('noKeyMsg');
+  const keyEditor = document.getElementById('keyEditor');
+  const selInfo = document.getElementById('selectionInfo');
+  if (noKeyMsg) noKeyMsg.style.display = 'block';
+  if (keyEditor) keyEditor.style.display = 'none';
+  if (selInfo) selInfo.textContent = 'click a key to edit';
+}
 function setDevice(val) {
   currentDevice = val;
   state.device = val;
+  // Per-profile device tracks the user's last choice for the active profile.
+  const ap = activeProfile();
+  if (ap && isValidDeviceId(val)) ap.device = val;
+  // Drop selection if it falls outside the new grid; otherwise edits would
+  // route to an off-grid index that renderGrid never paints.
+  const dev = DEVICES[val];
+  if (dev && typeof selectedKey === 'number' && selectedKey >= dev.cols * dev.rows) {
+    clearSelection();
+  }
   syncDeviceUI(val);
   renderGrid();
   renderExport();
@@ -2506,6 +2589,9 @@ function handleImport(event) {
       if (importData.deviceId) {
         currentDevice = importData.deviceId;
         state.device = importData.deviceId;
+        // Per-profile device tracks the user's last choice for the active
+        // profile so a later profile-switch round-trip is stable.
+        prof.device = importData.deviceId;
         syncDeviceUI(currentDevice);
       }
       if (importData.wheelProfiles !== null) {
