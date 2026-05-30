@@ -1039,7 +1039,6 @@ header {
   </div>
   <div class="header-sep"></div>
   <div style="font-size:9px;color:var(--muted)" id="selectionInfo">click a key to edit</div>
-  <div id="dirtyDot" title="All changes saved" style="width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0;transition:opacity 0.2s"></div>
   <div class="header-actions">
     <button class="btn" onclick="clearSelected()">clear key</button>
     <button class="btn" onclick="clearAll()">clear all</button>
@@ -1127,20 +1126,20 @@ header {
       <div class="panel-section">
         <div class="panel-title">Key — <span id="keyIndexLabel">0</span></div>
         <div class="field">
-          <label>Icon (emoji)</label>
+          <label for="fIcon">Icon (emoji)</label>
           <input type="text" id="fIcon" placeholder="🔴" maxlength="4" oninput="updateKey()">
           <div class="emoji-row" id="emojiRow"></div>
         </div>
         <div class="field">
-          <label>Label</label>
+          <label for="fLabel">Label</label>
           <input type="text" id="fLabel" placeholder="Key name" maxlength="20" oninput="updateKey()">
         </div>
         <div class="field">
           <label>Zone Color</label>
-          <div class="zone-picker" id="zonePicker"></div>
+          <div class="zone-picker" id="zonePicker" role="group" aria-label="Zone color"></div>
         </div>
         <div class="field">
-          <label>Mark Active</label>
+          <label for="fActive">Mark Active</label>
           <div style="display:flex;align-items:center;gap:8px">
             <input type="checkbox" id="fActive" onchange="updateKey()" style="width:auto;accent-color:var(--green)">
             <span style="font-size:10px;color:var(--muted)">shows green indicator dot</span>
@@ -1150,7 +1149,7 @@ header {
       <div class="panel-section">
         <div class="panel-title">Action</div>
         <div class="field">
-          <label>Action Type</label>
+          <label for="fActionType">Action Type</label>
           <select id="fActionType" onchange="updateKey()">
             <option value="hotkey">Hotkey</option>
             <option value="url">Open URL</option>
@@ -1163,11 +1162,11 @@ header {
           </select>
         </div>
         <div class="field">
-          <label>Action Value</label>
+          <label for="fActionValue">Action Value</label>
           <textarea id="fActionValue" placeholder="e.g. cmd+shift+5" oninput="updateKey()"></textarea>
         </div>
         <div class="field">
-          <label>Description / Notes</label>
+          <label for="fDescription">Description / Notes</label>
           <textarea id="fDescription" placeholder="What does this key do?" oninput="updateKey()"></textarea>
         </div>
       </div>
@@ -1179,7 +1178,7 @@ header {
     <div class="panel-section">
       <div class="panel-title">Logitech Options Wheel</div>
       <div class="field">
-        <label>Active Profile</label>
+        <label for="wheelProfileSelect">Active Profile</label>
         <select id="wheelProfileSelect" onchange="loadWheelProfile(this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;width:100%">
         </select>
       </div>
@@ -1196,7 +1195,7 @@ header {
     <div class="panel-section">
       <div class="panel-title">Profile Name</div>
       <div class="field">
-        <input type="text" id="exportProfileName" placeholder="My Layout" value="DaveDeck v1">
+        <input type="text" id="exportProfileName" aria-label="Profile name for export" placeholder="My Layout" value="DaveDeck v1">
       </div>
     </div>
     <div class="panel-section">
@@ -1480,18 +1479,22 @@ function normalizeKeyEntry(key, idx, deviceId) {
   if (!isPlainObject(key)) return null;
   const device = DEVICES[deviceId] || DEVICES[currentDevice] || DEVICES.xl;
   const cols = device.cols;
-  const zone = isValidZoneId(key.zone) ? key.zone : 'dim';
+  const userZone = isValidZoneId(key.zone) ? key.zone : null;
   const icon = normalizeText(key.icon, '');
   const label = normalizeText(key.label, '');
   const desc = normalizeText(key.desc, normalizeText(key.description, ''));
   const action = normalizeAction(key.action);
-  if (!icon && !label && !desc && action.type === 'none' && action.value === '') return null;
+  const active = normalizeBool(key.active, false);
+  // Preserve any key the user touched — including zone-only or "marked active"
+  // placeholders — so picking a zone on an otherwise blank key doesn't vanish
+  // on reload.
+  if (!icon && !label && !desc && action.type === 'none' && action.value === '' && !userZone && !active) return null;
   return {
     i: idx,
     icon,
     label,
-    zone,
-    active: normalizeBool(key.active, false),
+    zone: userZone || 'dim',
+    active,
     action,
     desc,
     row: Math.floor(idx / cols),
@@ -1684,17 +1687,10 @@ function saveState() {
   try {
     const data = { v: SCHEMA_VERSION, state, currentDevice, selectedZone };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-    const dot = document.getElementById('dirtyDot');
-    if (dot) { dot.style.opacity = '0'; dot.title = 'All changes saved'; }
   } catch (e) {
     if (typeof toast === 'function') toast('Storage full — changes not saved', 'error');
     else console.warn('DeckForge: save failed', e);
   }
-}
-
-function markDirty() {
-  const dot = document.getElementById('dirtyDot');
-  if (dot) { dot.style.opacity = '1'; dot.title = 'Unsaved changes'; }
 }
 
 function migrateV1toV2(data) {
@@ -1706,7 +1702,10 @@ function migrateV1toV2(data) {
     id: p.id || 'prof_' + i,
     name: p.name || profileName,
     device: data.currentDevice || old.device || 'xl',
-    keys: p.keys || (p.active ? { ...old.keys } : {}),
+    // Fall back to old.keys for the first profile too — v1 single-profile
+    // bundles don't always set p.active, and dropping old.keys silently loses
+    // the user's layout on upgrade.
+    keys: p.keys || ((p.active || i === 0) ? { ...old.keys } : {}),
     wheelProfiles: old.wheelProfiles || [],
     activeWheelProfile: old.activeWheelProfile || '',
     appTriggers: [],
@@ -1904,7 +1903,10 @@ function showKeyEditor(index) {
 
   const k = getKeys()[index] || {};
   document.getElementById('fIcon').value = k.icon || '';
-  document.getElementById('fLabel').value = (k.label || '').replace(/\n/g, '\\n');
+  // Encode newlines as literal "\n" so the single-line input can show them.
+  // Escape backslashes first so a label containing the two-char sequence "\n"
+  // round-trips correctly (otherwise it would be decoded back to a newline).
+  document.getElementById('fLabel').value = (k.label || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
   document.getElementById('fActive').checked = !!k.active;
   document.getElementById('fActionType').value = k.action?.type || 'none';
   document.getElementById('fActionValue').value = k.action?.value || '';
@@ -1947,7 +1949,9 @@ function updateKey() {
   const keys = getKeys();
   const k = keys[selectedKey] || { i: selectedKey };
   k.icon   = document.getElementById('fIcon').value;
-  k.label  = document.getElementById('fLabel').value.replace(/\\n/g, '\n');
+  // Inverse of the showKeyEditor encode: scan for backslash-escape pairs so
+  // "\\" decodes to a single backslash and "\n" decodes to a newline.
+  k.label  = document.getElementById('fLabel').value.replace(/\\(\\|n)/g, (_, c) => c === 'n' ? '\n' : '\\');
   k.active = document.getElementById('fActive').checked;
   k.action = {
     type:  document.getElementById('fActionType').value,
@@ -2036,20 +2040,20 @@ function renderWheelBindings(profileId) {
     <div style="margin-bottom:14px;padding:10px;background:var(--s2);border-radius:8px;border:1px solid var(--border)">
       <div style="font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">App ${i+1}</div>
       <div class="field" style="margin-bottom:6px">
-        <label>Application</label>
-        <input type="text" value="${escAttr(b.app)}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <label for="wb-${i}-app">Application</label>
+        <input type="text" id="wb-${i}-app" value="${escAttr(b.app)}" onchange="updateWheelBinding(${i},'app',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
-        <div class="wheel-dir-label">↑ up</div>
-        <input type="text" value="${escAttr(b.up)}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <label class="wheel-dir-label" for="wb-${i}-up">↑ up</label>
+        <input type="text" id="wb-${i}-up" value="${escAttr(b.up)}" onchange="updateWheelBinding(${i},'up',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
-        <div class="wheel-dir-label">↓ down</div>
-        <input type="text" value="${escAttr(b.down)}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <label class="wheel-dir-label" for="wb-${i}-down">↓ down</label>
+        <input type="text" id="wb-${i}-down" value="${escAttr(b.down)}" onchange="updateWheelBinding(${i},'down',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
       <div class="wheel-bind-row">
-        <div class="wheel-dir-label">● click</div>
-        <input type="text" value="${escAttr(b.click)}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
+        <label class="wheel-dir-label" for="wb-${i}-click">● click</label>
+        <input type="text" id="wb-${i}-click" value="${escAttr(b.click)}" onchange="updateWheelBinding(${i},'click',this.value)" style="font-family:var(--font-mono);font-size:11px;background:var(--s3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;width:100%">
       </div>
     </div>
   `).join('') + `<button class="btn" style="width:100%;font-size:10px" onclick="addWheelBinding('${profileId}')">+ add app binding</button>`;
@@ -2404,12 +2408,17 @@ function buildJSON() {
 function renderExport() {
   const out = document.getElementById('jsonOutput');
   if (!out) return;
+  // Cheap to skip: when the Export tab isn't visible, no one sees the preview,
+  // and buildJSON+highlight runs every keystroke via updateKey().
+  const exportTab = document.getElementById('tab-export');
+  if (exportTab && !exportTab.classList.contains('active')) return;
   const json = buildJSON();
-  // Syntax highlight
+  // HTML-escape first, then highlight. The key/string regexes consume \\ and \"
+  // properly so labels containing the literal sequence \": don't break highlighting.
   const hl = json
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"([^"]+)":/g, '<span class="jk">"$1"</span>:')
-    .replace(/: "([^"]*)"/g, ': <span class="js">"$1"</span>')
+    .replace(/"((?:\\.|[^\\"])*)":/g, '<span class="jk">"$1"</span>:')
+    .replace(/: "((?:\\.|[^\\"])*)"/g, ': <span class="js">"$1"</span>')
     .replace(/: (true|false)/g, ': <span class="jb">$1</span>')
     .replace(/: (\d+)/g, ': <span class="jn">$1</span>');
   out.innerHTML = hl;
