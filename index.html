@@ -1195,7 +1195,7 @@ header {
     <div class="panel-section">
       <div class="panel-title">Profile Name</div>
       <div class="field">
-        <input type="text" id="exportProfileName" aria-label="Profile name for export" placeholder="My Layout" value="DaveDeck v1">
+        <input type="text" id="exportProfileName" aria-label="Profile name for export" placeholder="Active profile name (leave blank to inherit)">
       </div>
     </div>
     <div class="panel-section">
@@ -1478,7 +1478,11 @@ function deepCapStrings(value, depth = 0) {
   }
   if (isPlainObject(value)) {
     const out = {};
-    for (const [k, v] of Object.entries(value)) {
+    // Cap own-key count the same way arrays are capped — otherwise a 1000-
+    // key plain object inside appTriggers/snapshots bypasses every other
+    // bound and lands hundreds of MB resident in state.
+    const entries = Object.entries(value).slice(0, SCAFFOLD_MAX);
+    for (const [k, v] of entries) {
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
       out[k] = deepCapStrings(v, depth + 1);
     }
@@ -2023,6 +2027,20 @@ function selectKey(index) {
 }
 
 function showKeyEditor(index) {
+  // Dial selections ('dial_N' strings) reach here via selectKey on Stream
+  // Deck + but the four mutation entrypoints all silent-no-op via
+  // isIntegerSelection(). Don't open the keyEditor for them — show the
+  // placeholder until a dedicated dial-bindings editor exists.
+  if (!Number.isInteger(index)) {
+    const noKeyMsg = document.getElementById('noKeyMsg');
+    const keyEditor = document.getElementById('keyEditor');
+    if (noKeyMsg) {
+      noKeyMsg.style.display = 'block';
+      noKeyMsg.innerHTML = '<div class="no-key-icon">🎛️</div><div>Dials don\'t have editable bindings yet.<br>Select a key on the grid to edit its properties.</div>';
+    }
+    if (keyEditor) keyEditor.style.display = 'none';
+    return;
+  }
   document.getElementById('noKeyMsg').style.display = 'none';
   document.getElementById('keyEditor').style.display = 'block';
   document.getElementById('keyIndexLabel').textContent = index;
@@ -2123,7 +2141,11 @@ function applyTemplate(actionType, icon) {
   const k = keys[selectedKey];
   k.icon = icon;
   k.action = { type: actionType, value: '' };
-  if (!k.zone || k.zone === 'dim') k.zone = selectedZone;
+  // Only inherit selectedZone when the key truly has no zone picked.
+  // Treating 'dim' as a default would silently overwrite a user who picked
+  // the Utility pill — same regression class fixed in updateKey (commit
+  // 435bf88).
+  if (!k.zone) k.zone = selectedZone;
   renderGrid();
   selectKey(selectedKey);
   renderSidebar();
@@ -2298,9 +2320,12 @@ function deleteWheelProfile(id) {
   const target = wheelProfiles.find(p => p.id === id);
   if (!target) return;
   if (!confirm(`Delete wheel profile "${target.name}"?`)) return;
+  // Capture active-was-deleted BEFORE mutating the list — getActiveWheelId()
+  // after the assign would fall back to next[0]?.id and never match `id`.
+  const wasActive = activeProfile().activeWheelProfile === id;
   const next = wheelProfiles.filter(p => p.id !== id);
   activeProfile().wheelProfiles = next;
-  if (getActiveWheelId() === id) {
+  if (wasActive) {
     activeProfile().activeWheelProfile = next[0]?.id || '';
   }
   updateWheelSelect();
@@ -2447,7 +2472,13 @@ function clearSelection() {
   const noKeyMsg = document.getElementById('noKeyMsg');
   const keyEditor = document.getElementById('keyEditor');
   const selInfo = document.getElementById('selectionInfo');
-  if (noKeyMsg) noKeyMsg.style.display = 'block';
+  if (noKeyMsg) {
+    noKeyMsg.style.display = 'block';
+    // showKeyEditor swaps in a dial-specific message for non-integer
+    // selections; restore the default here so subsequent key selections
+    // see the original prompt.
+    noKeyMsg.innerHTML = '<div class="no-key-icon">🎛️</div><div>Select a key on the grid<br>to edit its properties</div>';
+  }
   if (keyEditor) keyEditor.style.display = 'none';
   if (selInfo) selInfo.textContent = 'click a key to edit';
 }
@@ -2668,12 +2699,12 @@ function downloadJSON() {
 }
 
 function exportJSON() {
-  // Switch to export tab then download
-  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.querySelector('[data-tab="export"]').classList.add('active');
-  document.getElementById('tab-export').classList.add('active');
-  renderExport();
+  // Route through the panel-tab click handler so the visible tab and the
+  // persisted state.ui.activeTab stay in sync — direct DOM juggling here
+  // used to leave the persisted tab whatever the user last clicked
+  // through renderPanelTabs.
+  const tabBtn = document.querySelector('.panel-tab[data-tab="export"]');
+  if (tabBtn && tabBtn.onclick) tabBtn.onclick();
   downloadJSON();
 }
 
