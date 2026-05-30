@@ -1505,7 +1505,9 @@ function normalizeWheelProfile(profile, idx) {
     ? profile.bindings.map(normalizeWheelBinding).filter(Boolean)
     : [];
   return {
-    id: normalizeText(profile.id, `wheel_${idx}`),
+    // id sanitized to [a-z0-9_] to prevent attribute-breakout when interpolated
+    // into inline onclick handlers in renderSidebar.
+    id: normalizeIdPart(profile.id, `wheel_${idx}`),
     name: normalizeText(profile.name, `Profile ${idx + 1}`),
     bindings,
   };
@@ -1538,11 +1540,13 @@ function normalizeProfile(profile, idx, fallbackDevice) {
   const wheelProfiles = Array.isArray(profile.wheelProfiles)
     ? profile.wheelProfiles.map((wp, wpIdx) => normalizeWheelProfile(wp, wpIdx)).filter(Boolean)
     : [];
-  const activeWheelProfile = normalizeText(profile.activeWheelProfile, wheelProfiles[0]?.id || '');
+  const activeWheelProfile = normalizeIdPart(profile.activeWheelProfile, wheelProfiles[0]?.id || '');
   const selectedWheel = wheelProfiles.some(wp => wp.id === activeWheelProfile) ? activeWheelProfile : (wheelProfiles[0]?.id || '');
 
   return {
-    id: normalizeText(profile.id, `prof_${idx}`),
+    // id sanitized to [a-z0-9_] to prevent attribute-breakout when interpolated
+    // into inline onclick handlers in renderSidebar.
+    id: normalizeIdPart(profile.id, `prof_${idx}`),
     name: normalizeText(profile.name, `Profile ${idx + 1}`),
     device,
     keys,
@@ -1561,8 +1565,9 @@ function normalizeStateSnapshot(rawState) {
     : [];
   if (!profiles.length) return null;
 
-  const activeProfileId = profiles.some(p => p.id === rawState.activeProfileId)
-    ? rawState.activeProfileId
+  const requestedActiveId = normalizeIdPart(rawState.activeProfileId, '');
+  const activeProfileId = profiles.some(p => p.id === requestedActiveId)
+    ? requestedActiveId
     : profiles[0].id;
 
   return {
@@ -1641,7 +1646,7 @@ function normalizeImportedLayout(data) {
   if (data.wheelProfiles !== undefined && !wheelProfiles) return null;
   if (data.wheelProfiles !== undefined && Array.isArray(data.wheelProfiles) && data.wheelProfiles.length && !wheelProfiles.length) return null;
 
-  const activeWheelProfile = normalizeText(data.activeWheelProfile, '');
+  const activeWheelProfile = normalizeIdPart(data.activeWheelProfile, '');
   const selectedWheel = wheelProfiles && wheelProfiles.some(wp => wp.id === activeWheelProfile)
     ? activeWheelProfile
     : (wheelProfiles?.[0]?.id || '');
@@ -1779,15 +1784,19 @@ function renderSidebar() {
     </div>
   `).join('');
 
-  // Quick templates
+  // Quick templates — use data-* attributes + addEventListener instead of inline
+  // onclick to avoid JS-context injection through template icon/action values.
   const tg = document.getElementById('templateGrid');
   const templates = state.library.templates;
   tg.innerHTML = templates.map(t => `
-    <div class="tpl-key" title="Click to apply to selected key" onclick="applyTemplate('${t.action}', '${t.icon}')">
-      <div class="tpl-icon">${t.icon}</div>
-      <div>${t.label}</div>
+    <div class="tpl-key" title="Click to apply to selected key" data-action-type="${escAttr(t.action)}" data-icon="${escAttr(t.icon)}">
+      <div class="tpl-icon">${escHtml(t.icon)}</div>
+      <div>${escHtml(t.label)}</div>
     </div>
   `).join('');
+  tg.querySelectorAll('.tpl-key').forEach(el => {
+    el.onclick = () => applyTemplate(el.dataset.actionType, el.dataset.icon);
+  });
 
   // Wheel sidebar
   const ws = document.getElementById('wheelSidebar');
@@ -1825,7 +1834,7 @@ function renderGrid() {
     el.innerHTML = `
       <div class="key-index">${i}</div>
       ${k?.active ? '<div class="key-active-dot"></div>' : ''}
-      <div class="key-icon">${k?.icon || ''}</div>
+      <div class="key-icon">${escHtml(k?.icon || '')}</div>
       <div class="key-label">${escHtml(k?.label || '').replace(/\n/g, '<br>')}</div>
     `;
     el.onclick = () => selectKey(i);
@@ -2270,10 +2279,26 @@ function buildJSON() {
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
 
   if (fmt === 'csv') {
+    // Double embedded quotes (RFC 4180) and neutralize formula-injection leaders
+    // so the CSV is safe to open in Excel/Sheets.
+    const csvCell = v => {
+      const s = String(v == null ? '' : v).replace(/"/g, '""');
+      const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      return `"${safe}"`;
+    };
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
     for (let i = 0; i < dev.cols * dev.rows; i++) {
       const k = keys[i];
-      if (k) rows.push(`${i},"${k.icon}","${(k.label||'').replace(/\n/g,' ')}","${k.zone}",${k.active},"${k.action?.type}","${k.action?.value}","${k.desc||''}"`);
+      if (k) rows.push([
+        i,
+        csvCell(k.icon),
+        csvCell((k.label || '').replace(/\n/g, ' ')),
+        csvCell(k.zone),
+        k.active,
+        csvCell(k.action?.type),
+        csvCell(k.action?.value),
+        csvCell(k.desc || ''),
+      ].join(','));
     }
     return rows.join('\n');
   }
