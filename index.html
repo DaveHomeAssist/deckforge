@@ -1394,8 +1394,8 @@ function cloneProfileRecord(profile, overrides = {}) {
     keys: cloneJson(profile.keys || {}),
     wheelProfiles: wheelCopy.wheelProfiles,
     activeWheelProfile: wheelCopy.activeWheelProfile,
-    appTriggers: cloneJson(Array.isArray(profile.appTriggers) ? profile.appTriggers : []),
-    snapshots: cloneJson(Array.isArray(profile.snapshots) ? profile.snapshots : []),
+    appTriggers: deepCapStrings(Array.isArray(profile.appTriggers) ? profile.appTriggers : []),
+    snapshots: deepCapStrings(Array.isArray(profile.snapshots) ? profile.snapshots : []),
   };
 }
 
@@ -1462,6 +1462,32 @@ const NORMALIZE_TEXT_MAX = 4096;
 function normalizeText(value, fallback = '', maxLen = NORMALIZE_TEXT_MAX) {
   if (typeof value !== 'string') return fallback;
   return value.length > maxLen ? value.slice(0, maxLen) : value;
+}
+
+// Cap every string field inside a free-form JSON shape. Used for the
+// schema-flexible scaffolding fields (appTriggers, snapshots) so a hostile
+// bundle can't plant multi-MB string payloads via fields with no dedicated
+// normalizer. Bounded depth + collection size + per-string length.
+const SCAFFOLD_MAX = 128;
+const SCAFFOLD_DEPTH = 8;
+function deepCapStrings(value, depth = 0) {
+  if (depth > SCAFFOLD_DEPTH) return null;
+  if (typeof value === 'string') {
+    return value.length > NORMALIZE_TEXT_MAX ? value.slice(0, NORMALIZE_TEXT_MAX) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, SCAFFOLD_MAX).map(v => deepCapStrings(v, depth + 1));
+  }
+  if (isPlainObject(value)) {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+      out[k] = deepCapStrings(v, depth + 1);
+    }
+    return out;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
+  return null;
 }
 
 function normalizePromptName(value, fallback) {
@@ -1595,8 +1621,8 @@ function normalizeProfile(profile, idx, fallbackDevice) {
     keys,
     wheelProfiles,
     activeWheelProfile: selectedWheel,
-    appTriggers: Array.isArray(profile.appTriggers) ? cloneJson(profile.appTriggers.filter(isPlainObject)) : [],
-    snapshots: Array.isArray(profile.snapshots) ? cloneJson(profile.snapshots.filter(isPlainObject)) : [],
+    appTriggers: Array.isArray(profile.appTriggers) ? deepCapStrings(profile.appTriggers.filter(isPlainObject)) : [],
+    snapshots: Array.isArray(profile.snapshots) ? deepCapStrings(profile.snapshots.filter(isPlainObject)) : [],
   };
 }
 
@@ -2414,7 +2440,11 @@ function buildJSON() {
     // the leader; the original cell content (minus CR/LF) is what gets written.
     // Also collapse embedded CR/LF in any cell to a space so a multi-line
     // action.value can't break out of the CSV record.
-    const LEADER_STRIP = /^[\s\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/
+    // Unicode property escapes so the strip set covers ALL controls (Cc)
+    // and ALL format / default-ignorable chars (Cf + Default_Ignorable_Code_Point) -
+    // including U+2066-U+2069 (Unicode 6.3 bidi-isolates LRI/RLI/FSI/PDI)
+    // and U+061C ALM that the previous hand-curated class missed.
+    const LEADER_STRIP = /^[\s\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]+/u
     const csvCell = v => {
       const flat = String(v == null ? '' : v).replace(/[\r\n]+/g, ' ');
       const s = flat.replace(/"/g, '""');
