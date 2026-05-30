@@ -1498,10 +1498,16 @@ function normalizeBool(value, fallback = false) {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+// Mirrors the #fActionType <select> options. Imported/persisted action.type
+// must be in this set or it falls back to 'none' — otherwise the editor
+// shows the wrong selected option on open and the next save silently
+// rewrites the unknown value to 'hotkey' (the select's first option).
+const ACTION_TYPES = new Set(['hotkey', 'url', 'shell', 'system', 'obs', 'vmix', 'applescript', 'none']);
 function normalizeAction(action) {
   if (!isPlainObject(action)) return { type: 'none', value: '' };
+  const rawType = normalizeText(action.type, 'none');
   return {
-    type: normalizeText(action.type, 'none'),
+    type: ACTION_TYPES.has(rawType) ? rawType : 'none',
     value: normalizeText(action.value, ''),
   };
 }
@@ -1511,8 +1517,12 @@ function normalizeKeyEntry(key, idx, deviceId) {
   const device = DEVICES[deviceId] || DEVICES[currentDevice] || DEVICES.xl;
   const cols = device.cols;
   const userZone = isValidZoneId(key.zone) ? key.zone : null;
-  const icon = normalizeText(key.icon, '');
-  const label = normalizeText(key.label, '');
+  // Cap icon/label to match the editor's maxlength so imported values
+  // can't exceed what the editor can subsequently edit. Otherwise a 4KB
+  // imported icon shows in the input but maxlength refuses every further
+  // keystroke including backspace — the field becomes un-editable.
+  const icon = normalizeText(key.icon, '', 4);
+  const label = normalizeText(key.label, '', 20);
   const desc = normalizeText(key.desc, normalizeText(key.description, ''));
   const action = normalizeAction(key.action);
   const active = normalizeBool(key.active, false);
@@ -1899,9 +1909,9 @@ function renderSidebar() {
       <div class="profile-name">${escHtml(p.name)}</div>
       <div class="profile-app-count">${Object.keys(p.keys || {}).length}k</div>
       <div class="profile-actions">
-        <button class="profile-action-btn" title="Rename profile" onclick='event.stopPropagation();renameProfile(${JSON.stringify(p.id)})'>R</button>
-        <button class="profile-action-btn" title="Duplicate profile" onclick='event.stopPropagation();duplicateProfile(${JSON.stringify(p.id)})'>⧉</button>
-        ${state.profiles.length > 1 ? `<button class="profile-action-btn danger" title="Delete profile" onclick='event.stopPropagation();deleteProfile(${JSON.stringify(p.id)})'>×</button>` : ''}
+        <button class="profile-action-btn" title="Rename profile" aria-label="Rename profile" onclick='event.stopPropagation();renameProfile(${JSON.stringify(p.id)})'>R</button>
+        <button class="profile-action-btn" title="Duplicate profile" aria-label="Duplicate profile" onclick='event.stopPropagation();duplicateProfile(${JSON.stringify(p.id)})'>⧉</button>
+        ${state.profiles.length > 1 ? `<button class="profile-action-btn danger" title="Delete profile" aria-label="Delete profile" onclick='event.stopPropagation();deleteProfile(${JSON.stringify(p.id)})'>×</button>` : ''}
       </div>
     </div>
   `).join('');
@@ -1938,9 +1948,9 @@ function renderSidebar() {
       <div class="profile-dot ${p.id === awId ? '' : 'inactive'}"></div>
       <div class="profile-name">${escHtml(p.name)}</div>
       <div class="profile-actions">
-        <button class="profile-action-btn" title="Rename wheel profile" onclick='event.stopPropagation();renameWheelProfile(${JSON.stringify(p.id)})'>R</button>
-        <button class="profile-action-btn" title="Duplicate wheel profile" onclick='event.stopPropagation();duplicateWheelProfile(${JSON.stringify(p.id)})'>⧉</button>
-        <button class="profile-action-btn danger" title="Delete wheel profile" onclick='event.stopPropagation();deleteWheelProfile(${JSON.stringify(p.id)})'>×</button>
+        <button class="profile-action-btn" title="Rename wheel profile" aria-label="Rename wheel profile" onclick='event.stopPropagation();renameWheelProfile(${JSON.stringify(p.id)})'>R</button>
+        <button class="profile-action-btn" title="Duplicate wheel profile" aria-label="Duplicate wheel profile" onclick='event.stopPropagation();duplicateWheelProfile(${JSON.stringify(p.id)})'>⧉</button>
+        <button class="profile-action-btn danger" title="Delete wheel profile" aria-label="Delete wheel profile" onclick='event.stopPropagation();deleteWheelProfile(${JSON.stringify(p.id)})'>×</button>
       </div>
     </div>
   `).join('');
@@ -2620,12 +2630,24 @@ function renderExport() {
 }
 
 function copyJSON() {
+  // navigator.clipboard.writeText can reject (insecure context, blurred
+  // tab, denied permission) or be undefined (older browsers, iframe
+  // without clipboard-write permission). Don't silently swallow either.
+  if (!navigator.clipboard?.writeText) {
+    toast('Clipboard API unavailable — select the preview and copy manually', 'error');
+    return;
+  }
   navigator.clipboard.writeText(buildJSON()).then(() => {
     const cc = document.getElementById('copyConfirm');
-    cc.classList.add('show');
-    setTimeout(() => cc.classList.remove('show'), 2000);
+    if (cc) {
+      cc.classList.add('show');
+      setTimeout(() => cc.classList.remove('show'), 2000);
+    }
     flashSuccess(document.querySelector('[data-tab="export"]'));
     toast('Copied to clipboard');
+  }).catch(err => {
+    console.warn('DeckForge: clipboard write failed', err);
+    toast('Copy failed — try Ctrl/Cmd+C on the preview', 'error');
   });
 }
 
