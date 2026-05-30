@@ -1355,6 +1355,17 @@ function makeUniqueId(prefix, existingIds, seed) {
   while (used.has(id)) id = `${base}_${suffix++}`;
   return id;
 }
+// Rewrites colliding ids in-place so each entry's id is unique. Used after
+// normalizeIdPart collapses different raw ids to the same sanitized value.
+function dedupIds(items, prefix) {
+  const seen = new Set();
+  items.forEach(item => {
+    if (seen.has(item.id)) {
+      item.id = makeUniqueId(prefix, seen, item.name);
+    }
+    seen.add(item.id);
+  });
+}
 function cloneWheelProfileSet(wheelProfiles, activeWheelProfile) {
   const source = Array.isArray(wheelProfiles) ? wheelProfiles : [];
   const used = new Set(source.map(wp => wp.id));
@@ -1540,6 +1551,9 @@ function normalizeProfile(profile, idx, fallbackDevice) {
   const wheelProfiles = Array.isArray(profile.wheelProfiles)
     ? profile.wheelProfiles.map((wp, wpIdx) => normalizeWheelProfile(wp, wpIdx)).filter(Boolean)
     : [];
+  // Dedup wheel-profile ids after normalizeIdPart so distinct-looking ids that
+  // collapse to the same sanitized value don't shadow each other in the UI.
+  dedupIds(wheelProfiles, 'wheel');
   const activeWheelProfile = normalizeIdPart(profile.activeWheelProfile, wheelProfiles[0]?.id || '');
   const selectedWheel = wheelProfiles.some(wp => wp.id === activeWheelProfile) ? activeWheelProfile : (wheelProfiles[0]?.id || '');
 
@@ -1564,6 +1578,8 @@ function normalizeStateSnapshot(rawState) {
     ? rawState.profiles.map((profile, idx) => normalizeProfile(profile, idx, fallbackDevice)).filter(Boolean)
     : [];
   if (!profiles.length) return null;
+  // Dedup profile ids after normalizeIdPart — see comment in normalizeProfile.
+  dedupIds(profiles, 'prof');
 
   const requestedActiveId = normalizeIdPart(rawState.activeProfileId, '');
   const activeProfileId = profiles.some(p => p.id === requestedActiveId)
@@ -1645,6 +1661,7 @@ function normalizeImportedLayout(data) {
 
   if (data.wheelProfiles !== undefined && !wheelProfiles) return null;
   if (data.wheelProfiles !== undefined && Array.isArray(data.wheelProfiles) && data.wheelProfiles.length && !wheelProfiles.length) return null;
+  if (wheelProfiles) dedupIds(wheelProfiles, 'wheel');
 
   const activeWheelProfile = normalizeIdPart(data.activeWheelProfile, '');
   const selectedWheel = wheelProfiles && wheelProfiles.some(wp => wp.id === activeWheelProfile)
@@ -2279,11 +2296,13 @@ function buildJSON() {
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
 
   if (fmt === 'csv') {
-    // Double embedded quotes (RFC 4180) and neutralize formula-injection leaders
-    // so the CSV is safe to open in Excel/Sheets.
+    // Double embedded quotes (RFC 4180) and neutralize formula-injection leaders.
+    // Spreadsheets (Excel, LibreOffice) trim leading whitespace/control chars
+    // before checking for a formula leader, so we must guard against
+    // [whitespace/control]*[= + - @ |] not just a bare leader.
     const csvCell = v => {
       const s = String(v == null ? '' : v).replace(/"/g, '""');
-      const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+      const safe = /^\s*[=+\-@|]/.test(s) ? `'${s}` : s;
       return `"${safe}"`;
     };
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
@@ -2292,7 +2311,7 @@ function buildJSON() {
       if (k) rows.push([
         i,
         csvCell(k.icon),
-        csvCell((k.label || '').replace(/\n/g, ' ')),
+        csvCell((k.label || '').replace(/[\r\n]/g, ' ')),
         csvCell(k.zone),
         k.active,
         csvCell(k.action?.type),
