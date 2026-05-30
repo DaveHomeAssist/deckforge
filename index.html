@@ -1308,9 +1308,7 @@ let state = {
     }
   ],
   ui: {
-    selectedKey: null,
     activeTab: 'edit',
-    diffBaseSnapshotId: null,
   },
   library: {
     templates: [
@@ -1674,9 +1672,10 @@ function normalizeStateSnapshot(rawState) {
     activeProfileId,
     profiles,
     ui: {
-      selectedKey: Number.isInteger(rawState.ui?.selectedKey) ? rawState.ui.selectedKey : null,
-      activeTab: rawState.ui?.activeTab === 'export' ? 'export' : 'edit',
-      diffBaseSnapshotId: normalizeText(rawState.ui?.diffBaseSnapshotId, ''),
+      // Only activeTab is actually read back on init(); selectedKey and
+      // diffBaseSnapshotId were schema lies before — schema now reflects
+      // the truth.
+      activeTab: ['wheel', 'export'].includes(rawState.ui?.activeTab) ? rawState.ui.activeTab : 'edit',
     },
     library: {
       templates: Array.isArray(rawState.library?.templates)
@@ -1739,14 +1738,26 @@ function normalizeImportedLayout(data) {
   // by `const keys = isPlainObject(data.keys) ? data.keys : null;` above).
 
 
-  const wheelProfiles = data.wheelProfiles === undefined
-    ? null
-    : Array.isArray(data.wheelProfiles)
-      ? data.wheelProfiles.map((wp, idx) => normalizeWheelProfile(wp, idx)).filter(Boolean)
-      : null;
-
-  if (data.wheelProfiles !== undefined && !wheelProfiles) return null;
-  if (data.wheelProfiles !== undefined && Array.isArray(data.wheelProfiles) && data.wheelProfiles.length && !wheelProfiles.length) return null;
+  // wheelProfiles is best-effort: a bundle with malformed wheel data still
+  // imports its keys. The keys map is the primary payload; wheel data is
+  // skipped (with a warning toast in handleImport) rather than killing the
+  // whole import.
+  let wheelProfiles = null;
+  let wheelProfilesPartial = false;
+  if (data.wheelProfiles !== undefined) {
+    if (Array.isArray(data.wheelProfiles)) {
+      const mapped = data.wheelProfiles.map((wp, idx) => normalizeWheelProfile(wp, idx)).filter(Boolean);
+      if (data.wheelProfiles.length && !mapped.length) {
+        // Caller asked to import wheels but every entry was invalid.
+        wheelProfilesPartial = true;
+        wheelProfiles = null;
+      } else {
+        wheelProfiles = mapped;
+      }
+    } else {
+      wheelProfilesPartial = true;
+    }
+  }
   if (wheelProfiles) dedupIds(wheelProfiles, 'wheel');
 
   const activeWheelProfile = normalizeIdPart(data.activeWheelProfile, '');
@@ -1759,6 +1770,7 @@ function normalizeImportedLayout(data) {
     keys: normalizedKeys,
     wheelProfiles,
     activeWheelProfile: selectedWheel,
+    wheelProfilesPartial,
   };
 }
 
@@ -1816,7 +1828,7 @@ function migrateV1toV2(data) {
     device: data.currentDevice || old.device || 'xl',
     activeProfileId: activeId,
     profiles,
-    ui: { selectedKey: null, activeTab: 'edit', diffBaseSnapshotId: null },
+    ui: { activeTab: 'edit' },
     library: { templates: state.library.templates, zones: null },
   };
 }
@@ -1868,6 +1880,13 @@ function init() {
   renderExport();
   updateWheelSelect();
   renderWheelBindings(getActiveWheelId());
+  // Restore the user's last tab. We click the tab's onclick (set in
+  // renderPanelTabs above) so it runs the same DOM updates a real click
+  // would — including the renderExport call when activating Export.
+  if (restored && state.ui && state.ui.activeTab && state.ui.activeTab !== 'edit') {
+    const tabBtn = document.querySelector(`.panel-tab[data-tab="${state.ui.activeTab}"]`);
+    if (tabBtn) tabBtn.onclick && tabBtn.onclick();
+  }
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────────
@@ -1998,16 +2017,25 @@ function showKeyEditor(index) {
   document.getElementById('keyEditor').style.display = 'block';
   document.getElementById('keyIndexLabel').textContent = index;
 
+  // Skip the .value assignment on whichever input the user is currently
+  // typing into — otherwise the keystroke-triggered updateKey -> selectKey
+  // -> showKeyEditor cycle reassigns .value mid-edit, snapping the caret to
+  // the end and making mid-string edits effectively impossible.
+  const setIfNotFocused = (id, value) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = value;
+  };
   const k = getKeys()[index] || {};
-  document.getElementById('fIcon').value = k.icon || '';
+  setIfNotFocused('fIcon', k.icon || '');
   // Encode newlines as literal "\n" so the single-line input can show them.
   // Escape backslashes first so a label containing the two-char sequence "\n"
   // round-trips correctly (otherwise it would be decoded back to a newline).
-  document.getElementById('fLabel').value = (k.label || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
-  document.getElementById('fActive').checked = !!k.active;
-  document.getElementById('fActionType').value = k.action?.type || 'none';
-  document.getElementById('fActionValue').value = k.action?.value || '';
-  document.getElementById('fDescription').value = k.desc || '';
+  setIfNotFocused('fLabel', (k.label || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n'));
+  const activeEl = document.getElementById('fActive');
+  if (activeEl && document.activeElement !== activeEl) activeEl.checked = !!k.active;
+  setIfNotFocused('fActionType', k.action?.type || 'none');
+  setIfNotFocused('fActionValue', k.action?.value || '');
+  setIfNotFocused('fDescription', k.desc || '');
 
   // Emoji row
   const er = document.getElementById('emojiRow');
@@ -2419,10 +2447,14 @@ function setDevice(val) {
   // Per-profile device tracks the user's last choice for the active profile.
   const ap = activeProfile();
   if (ap && isValidDeviceId(val)) ap.device = val;
-  // Drop selection if it falls outside the new grid; otherwise edits would
-  // route to an off-grid index that renderGrid never paints.
+  // Drop selection if it falls outside the new grid, OR if it's a non-integer
+  // (dial_N) selection that the new device may not host. Otherwise edits route
+  // to an off-grid index that renderGrid never paints, or the dial editor
+  // stays open after switching to a deviceless model.
   const dev = DEVICES[val];
-  if (dev && typeof selectedKey === 'number' && selectedKey >= dev.cols * dev.rows) {
+  const offGrid = dev && Number.isInteger(selectedKey) && selectedKey >= dev.cols * dev.rows;
+  const dialOnNonDial = typeof selectedKey === 'string' && !(dev && dev.hasDial);
+  if (selectedKey !== null && (offGrid || dialOnNonDial)) {
     clearSelection();
   }
   syncDeviceUI(val);
@@ -2447,6 +2479,9 @@ function renderPanelTabs() {
       tab.classList.add('active');
       document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
       if (tab.dataset.tab === 'export') renderExport();
+      // Persist so a reload lands on the same tab.
+      if (state.ui) state.ui.activeTab = tab.dataset.tab;
+      saveState();
     };
   });
 }
@@ -2663,7 +2698,11 @@ function handleImport(event) {
       renderExport();
       saveState();
       flashSuccess(document.querySelector('[data-tab="export"]'));
-      toast(`Layout imported into "${prof.name}"`);
+      if (importData.wheelProfilesPartial) {
+        toast(`Layout imported into "${prof.name}" — wheel profiles skipped (invalid)`, 'error');
+      } else {
+        toast(`Layout imported into "${prof.name}"`);
+      }
     } catch {
       toast('Invalid JSON file', 'error');
     } finally {
