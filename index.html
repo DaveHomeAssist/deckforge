@@ -1764,7 +1764,7 @@ function resetToDefaults() {
 function init() {
   const restored = restoreState();
   if (restored) {
-    document.getElementById('deviceSelect').value = currentDevice;
+    syncDeviceUI(currentDevice);
   }
   renderSidebar();
   renderGrid();
@@ -2091,7 +2091,9 @@ function setActiveWheelProfile(id) {
 }
 
 function addWheelProfile() {
-  const name = normalizePromptName(prompt('Wheel profile name:', 'New Profile'), 'New Profile');
+  const raw = prompt('Wheel profile name:', 'New Profile');
+  if (raw === null) return;
+  const name = normalizePromptName(raw, 'New Profile');
   const wheelProfiles = getWheelProfiles();
   const id = makeUniqueId('wheel', wheelProfiles.map(p => p.id), name);
   wheelProfiles.push({ id, name, bindings: [
@@ -2121,7 +2123,9 @@ function duplicateWheelProfile(id) {
   const source = getWheelProfiles().find(p => p.id === id);
   if (!source) return;
   const defaultName = `${source.name} Copy`;
-  const name = normalizePromptName(prompt('Duplicate wheel profile as:', defaultName), defaultName);
+  const raw = prompt('Duplicate wheel profile as:', defaultName);
+  if (raw === null) return;
+  const name = normalizePromptName(raw, defaultName);
   const wheelProfiles = getWheelProfiles();
   const copy = {
     id: makeUniqueId('wheel', wheelProfiles.map(p => p.id), name),
@@ -2157,7 +2161,9 @@ function deleteWheelProfile(id) {
 
 // ── PROFILES ──────────────────────────────────────────────────────
 function addProfile() {
-  const name = normalizePromptName(prompt('Profile name:', 'New Profile'), 'New Profile');
+  const raw = prompt('Profile name:', 'New Profile');
+  if (raw === null) return;
+  const name = normalizePromptName(raw, 'New Profile');
   const id = makeUniqueId('prof', state.profiles.map(p => p.id), name);
   state.profiles.push({
     id,
@@ -2196,7 +2202,9 @@ function duplicateProfile(id) {
   const source = state.profiles.find(p => p.id === id);
   if (!source) return;
   const defaultName = `${source.name} Copy`;
-  const name = normalizePromptName(prompt('Duplicate profile as:', defaultName), defaultName);
+  const raw = prompt('Duplicate profile as:', defaultName);
+  if (raw === null) return;
+  const name = normalizePromptName(raw, defaultName);
   const copy = cloneProfileRecord(source, {
     id: makeUniqueId('prof', state.profiles.map(p => p.id), name),
     name,
@@ -2258,10 +2266,19 @@ function activateProfile(id) {
 }
 
 // ── DEVICE ────────────────────────────────────────────────────────
+// Sync both the <select> and the header model-tab highlight to the given id.
+// Used by setDevice and any flow that changes currentDevice without going
+// through setDevice (init, handleImport) so the UI doesn't lie about which
+// device is active.
+function syncDeviceUI(id) {
+  const sel = document.getElementById('deviceSelect');
+  if (sel) sel.value = id;
+  document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === id));
+}
 function setDevice(val) {
   currentDevice = val;
   state.device = val;
-  document.querySelectorAll('.model-tab').forEach(t => t.classList.toggle('active', t.dataset.model === val));
+  syncDeviceUI(val);
   renderGrid();
   renderExport();
   saveState();
@@ -2414,9 +2431,13 @@ function downloadJSON() {
   const ext = fmt === 'csv' ? 'csv' : fmt === 'streamdeck' ? 'streamDeckProfile' : 'json';
   const blob = new Blob([buildJSON()], { type: 'application/json' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `${name.toLowerCase().replace(/\s+/g,'-')}.${ext}`;
   a.click();
+  // Release the object URL on the next tick so the click handler has resolved.
+  // Without this, every export pins a Blob in memory for the document lifetime.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
   toast(`Downloaded ${a.download}`);
 }
 
@@ -2434,9 +2455,15 @@ function importJSON() {
   document.getElementById('importFile').click();
 }
 
+let importInFlight = false;
 function handleImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const input = event.target;
+  // Always clear the input value so re-selecting the same file fires 'change'.
+  const reset = () => { input.value = ''; };
+  const file = input.files[0];
+  if (!file) { reset(); return; }
+  if (importInFlight) { reset(); toast('Import already in progress', 'error'); return; }
+  importInFlight = true;
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -2450,7 +2477,7 @@ function handleImport(event) {
       if (importData.deviceId) {
         currentDevice = importData.deviceId;
         state.device = importData.deviceId;
-        document.getElementById('deviceSelect').value = currentDevice;
+        syncDeviceUI(currentDevice);
       }
       if (importData.wheelProfiles !== null) {
         prof.wheelProfiles = importData.wheelProfiles;
@@ -2467,7 +2494,15 @@ function handleImport(event) {
       toast(`Layout imported into "${prof.name}"`);
     } catch {
       toast('Invalid JSON file', 'error');
+    } finally {
+      importInFlight = false;
+      reset();
     }
+  };
+  reader.onerror = () => {
+    importInFlight = false;
+    reset();
+    toast('Could not read file', 'error');
   };
   reader.readAsText(file);
 }
