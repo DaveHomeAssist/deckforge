@@ -1453,8 +1453,15 @@ function isValidZoneId(id) {
   return typeof id === 'string' && ZONES.some(z => z.id === id);
 }
 
-function normalizeText(value, fallback = '') {
-  return typeof value === 'string' ? value : fallback;
+// Cap incoming string fields at 4KB. The editor's hard limits (icon=4,
+// label=20) keep typing in-bounds, but imported/restored JSON has no such
+// cap and a multi-MB description can hang the JSON-highlight regex,
+// inflate exports, and balloon localStorage. 4096 is plenty for any
+// realistic label/icon/desc/action.value.
+const NORMALIZE_TEXT_MAX = 4096;
+function normalizeText(value, fallback = '', maxLen = NORMALIZE_TEXT_MAX) {
+  if (typeof value !== 'string') return fallback;
+  return value.length > maxLen ? value.slice(0, maxLen) : value;
 }
 
 function normalizePromptName(value, fallback) {
@@ -2317,13 +2324,19 @@ function buildJSON() {
   const fmt = document.querySelector('input[name="exportFmt"]:checked')?.value || 'deckforge';
 
   if (fmt === 'csv') {
-    // Double embedded quotes (RFC 4180) and neutralize formula-injection leaders.
-    // Spreadsheets (Excel, LibreOffice) trim leading whitespace/control chars
-    // before checking for a formula leader, so we must guard against
-    // [whitespace/control]*[= + - @ |] not just a bare leader.
+    // Excel/Sheets/LibreOffice strip a broader prefix than JS \s before checking
+    // for a formula leader: C0 controls (0x00-0x1f, 0x7f), C1 controls
+    // (0x80-0x9f), and Unicode bidi/zero-width marks (ZWSP, ZWNJ, ZWJ, LRM,
+    // RLM, LRO, RLE, RLI, etc.). Strip all of them in a probe copy, then test
+    // the leader; the original cell content (minus CR/LF) is what gets written.
+    // Also collapse embedded CR/LF in any cell to a space so a multi-line
+    // action.value can't break out of the CSV record.
+    const LEADER_STRIP = /^[\s\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/
     const csvCell = v => {
-      const s = String(v == null ? '' : v).replace(/"/g, '""');
-      const safe = /^\s*[=+\-@|]/.test(s) ? `'${s}` : s;
+      const flat = String(v == null ? '' : v).replace(/[\r\n]+/g, ' ');
+      const s = flat.replace(/"/g, '""');
+      const probe = s.replace(LEADER_STRIP, '');
+      const safe = /^[=+\-@|]/.test(probe) ? `'${s}` : s;
       return `"${safe}"`;
     };
     const rows = ['index,icon,label,zone,active,action_type,action_value,description'];
@@ -2332,7 +2345,7 @@ function buildJSON() {
       if (k) rows.push([
         i,
         csvCell(k.icon),
-        csvCell((k.label || '').replace(/[\r\n]/g, ' ')),
+        csvCell(k.label),
         csvCell(k.zone),
         k.active,
         csvCell(k.action?.type),
@@ -2405,6 +2418,10 @@ function buildJSON() {
   return JSON.stringify(out, null, 2);
 }
 
+// JSON above this size renders without syntax highlighting — the regex pipeline
+// is O(N^2) on quote-heavy input (a 100KB string of `"` chars freezes the tab
+// for ~15s otherwise). The preview still shows the full text.
+const HIGHLIGHT_MAX_LEN = 64 * 1024;
 function renderExport() {
   const out = document.getElementById('jsonOutput');
   if (!out) return;
@@ -2413,14 +2430,17 @@ function renderExport() {
   const exportTab = document.getElementById('tab-export');
   if (exportTab && !exportTab.classList.contains('active')) return;
   const json = buildJSON();
-  // HTML-escape first, then highlight. The key/string regexes consume \\ and \"
-  // properly so labels containing the literal sequence \": don't break highlighting.
-  const hl = json
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"((?:\\.|[^\\"])*)":/g, '<span class="jk">"$1"</span>:')
-    .replace(/: "((?:\\.|[^\\"])*)"/g, ': <span class="js">"$1"</span>')
-    .replace(/: (true|false)/g, ': <span class="jb">$1</span>')
-    .replace(/: (\d+)/g, ': <span class="jn">$1</span>');
+  // HTML-escape first; only then highlight. The key/string regexes consume \\
+  // and \" properly so labels containing the literal sequence \": don't break
+  // highlighting.
+  const escaped = json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const hl = escaped.length > HIGHLIGHT_MAX_LEN
+    ? escaped
+    : escaped
+        .replace(/"((?:\\.|[^\\"])*)":/g, '<span class="jk">"$1"</span>:')
+        .replace(/: "((?:\\.|[^\\"])*)"/g, ': <span class="js">"$1"</span>')
+        .replace(/: (true|false)/g, ': <span class="jb">$1</span>')
+        .replace(/: (\d+)/g, ': <span class="jn">$1</span>');
   out.innerHTML = hl;
 }
 
