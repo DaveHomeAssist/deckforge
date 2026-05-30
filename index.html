@@ -1518,13 +1518,12 @@ function normalizeKeyEntry(key, idx, deviceId) {
   const desc = normalizeText(key.desc, normalizeText(key.description, ''));
   const action = normalizeAction(key.action);
   const active = normalizeBool(key.active, false);
-  // Preserve any key the user touched — including zone-only or "marked active"
-  // placeholders — so picking a zone on an otherwise blank key doesn't vanish
-  // on reload. Treat 'dim' as the implicit default though: updateKey()
-  // auto-stamps zone='dim' on every edit, so a user who clears all fields
-  // back to empty would otherwise resurrect the slot as a kz-dim ghost.
-  const isExplicitZone = userZone && userZone !== 'dim';
-  if (!icon && !label && !desc && action.type === 'none' && action.value === '' && !isExplicitZone && !active) return null;
+  // Preserve any key the user touched — including zone-only or "marked
+  // active" placeholders — so picking ANY zone (including the Utility 'dim'
+  // pill) on an otherwise blank key doesn't vanish on reload. updateKey no
+  // longer auto-stamps zone='dim', so reaching this branch with userZone
+  // set is always a user choice.
+  if (!icon && !label && !desc && action.type === 'none' && action.value === '' && !userZone && !active) return null;
   return {
     i: idx,
     icon,
@@ -1601,14 +1600,17 @@ function normalizeProfile(profile, idx, fallbackDevice) {
     }
   });
   dedupIds(wheelProfiles, 'wheel');
-  const wheelRequested = typeof profile.activeWheelProfile === 'string' ? profile.activeWheelProfile : '';
+  // Use a null sentinel — see comment in normalizeStateSnapshot.
+  const wheelRequested = typeof profile.activeWheelProfile === 'string' ? profile.activeWheelProfile : null;
   let selectedWheel = '';
-  const wpRawIdx = wheelRaw.findIndex(wp => isPlainObject(wp) && wp.id === wheelRequested);
-  if (wpRawIdx >= 0 && wpRawToMapped[wpRawIdx] != null) {
-    selectedWheel = wheelProfiles[wpRawToMapped[wpRawIdx]].id;
-  } else {
-    const sanitized = normalizeIdPart(wheelRequested, '');
-    if (sanitized && wheelProfiles.some(wp => wp.id === sanitized)) selectedWheel = sanitized;
+  if (wheelRequested !== null) {
+    const wpRawIdx = wheelRaw.findIndex(wp => isPlainObject(wp) && wp.id === wheelRequested);
+    if (wpRawIdx >= 0 && wpRawToMapped[wpRawIdx] != null) {
+      selectedWheel = wheelProfiles[wpRawToMapped[wpRawIdx]].id;
+    } else {
+      const sanitized = normalizeIdPart(wheelRequested, '');
+      if (sanitized && wheelProfiles.some(wp => wp.id === sanitized)) selectedWheel = sanitized;
+    }
   }
   if (!selectedWheel) selectedWheel = wheelProfiles[0]?.id || '';
 
@@ -1649,15 +1651,20 @@ function normalizeStateSnapshot(rawState) {
   // original payload (preserves user intent across dedup), then by sanitized
   // match against the post-dedup ids (covers in-app saves where ids are
   // already clean), then fall back to the first profile.
-  const requestedRaw = typeof rawState.activeProfileId === 'string' ? rawState.activeProfileId : '';
+  // Use a null sentinel so a non-string activeProfileId can't false-match
+  // any raw profile whose id is literally "" (a hand-edited bundle could
+  // otherwise hijack the active-profile pick).
+  const requestedRaw = typeof rawState.activeProfileId === 'string' ? rawState.activeProfileId : null;
   let activeProfileId = null;
-  const rawIdx = profilesRaw.findIndex(p => isPlainObject(p) && p.id === requestedRaw);
-  if (rawIdx >= 0 && rawToMapped[rawIdx] != null) {
-    activeProfileId = profiles[rawToMapped[rawIdx]].id;
-  }
-  if (!activeProfileId) {
-    const sanitized = normalizeIdPart(requestedRaw, '');
-    if (sanitized && profiles.some(p => p.id === sanitized)) activeProfileId = sanitized;
+  if (requestedRaw !== null) {
+    const rawIdx = profilesRaw.findIndex(p => isPlainObject(p) && p.id === requestedRaw);
+    if (rawIdx >= 0 && rawToMapped[rawIdx] != null) {
+      activeProfileId = profiles[rawToMapped[rawIdx]].id;
+    }
+    if (!activeProfileId) {
+      const sanitized = normalizeIdPart(requestedRaw, '');
+      if (sanitized && profiles.some(p => p.id === sanitized)) activeProfileId = sanitized;
+    }
   }
   if (!activeProfileId) activeProfileId = profiles[0].id;
 
@@ -1790,8 +1797,12 @@ function migrateV1toV2(data) {
     device: data.currentDevice || old.device || 'xl',
     // Fall back to old.keys for the first profile too — v1 single-profile
     // bundles don't always set p.active, and dropping old.keys silently loses
-    // the user's layout on upgrade.
-    keys: p.keys || ((p.active || i === 0) ? { ...(old.keys || {}) } : {}),
+    // the user's layout on upgrade. Also: a legacy v1 export that initialized
+    // profile shells with `keys: {}` would otherwise short-circuit the ||
+    // chain and lose old.keys entirely.
+    keys: (isPlainObject(p.keys) && Object.keys(p.keys).length)
+      ? p.keys
+      : ((p.active || i === 0) ? { ...(old.keys || {}) } : {}),
     wheelProfiles: old.wheelProfiles || [],
     activeWheelProfile: old.activeWheelProfile || '',
     appTriggers: [],
@@ -2051,7 +2062,14 @@ function updateKey() {
     value: document.getElementById('fActionValue').value,
   };
   k.desc = document.getElementById('fDescription').value;
-  if (!k.zone) k.zone = 'dim';
+  // Don't auto-stamp zone here. normalizeKeyEntry defaults unset zone to
+  // 'dim' on reload via `userZone || 'dim'`, so renderGrid still paints
+  // an unstyled `kz-undefined` while editing in-session (acceptable —
+  // matches "no zone picked yet") and the persisted shape stays clean.
+  // Stamping 'dim' here previously caused two problems: (1) the persisted
+  // key was indistinguishable from a user-chosen 'dim' pick, and (2) a
+  // user clicking the dim pill on a blank key got dropped on reload
+  // because the normalizer treats 'dim' as the implicit default.
   keys[selectedKey] = k;
   renderGrid();
   selectKey(selectedKey);
@@ -2272,7 +2290,7 @@ function addProfile() {
     snapshots: [],
   });
   state.activeProfileId = id;
-  selectedKey = null;
+  clearSelection();
   renderGrid();
   renderSidebar();
   updateWheelSelect();
@@ -2309,7 +2327,16 @@ function duplicateProfile(id) {
   const insertAt = sourceIndex >= 0 ? sourceIndex + 1 : state.profiles.length;
   state.profiles.splice(insertAt, 0, copy);
   state.activeProfileId = copy.id;
-  selectedKey = null;
+  // Mirror activateProfile: the new active profile's device should drive the
+  // grid / header tabs, otherwise duplicating a Mini profile while on XL
+  // would render Mini's keys in XL's 8x4 grid.
+  const dev = activeProfile().device;
+  if (isValidDeviceId(dev) && dev !== currentDevice) {
+    currentDevice = dev;
+    state.device = dev;
+    syncDeviceUI(dev);
+  }
+  clearSelection();
   renderGrid();
   renderSidebar();
   updateWheelSelect();
@@ -2628,7 +2655,7 @@ function handleImport(event) {
         prof.wheelProfiles = importData.wheelProfiles;
         prof.activeWheelProfile = importData.activeWheelProfile;
       }
-      selectedKey = null;
+      clearSelection();
       renderGrid();
       renderSidebar();
       updateWheelSelect();
