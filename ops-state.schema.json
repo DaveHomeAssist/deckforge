@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "ops-state.schema.json",
   "title": "Ops Hub Project State",
+  "description": "v2 — adds optional `recommendations` and `sections` arrays. Backwards-compatible with v1 readers (extra fields are ignored).",
   "type": "object",
   "required": ["project", "status", "freshness", "updatedAt", "metadata"],
   "properties": {
@@ -54,6 +55,46 @@
         "properties": {
           "label": { "type": "string", "minLength": 1 },
           "path":  { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recommendations": {
+      "description": "Optional v2 field. Prioritized actions the dashboard should surface to the operator.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["priority", "title", "reason"],
+        "properties": {
+          "priority": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+          "title":    { "type": "string", "minLength": 1 },
+          "reason":   { "type": "string" },
+          "command":  { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sections": {
+      "description": "Optional v2 field. Grouped KPI views for richer dashboard rendering. Each section's items are a subset of `kpis` by label.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "items"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "value", "status"],
+              "properties": {
+                "label":  { "type": "string", "minLength": 1 },
+                "value":  { "type": ["string", "number", "boolean"] },
+                "status": { "type": "string", "enum": ["ok", "warn", "err", "unknown"] }
+              },
+              "additionalProperties": false
+            }
+          }
         },
         "additionalProperties": false
       }

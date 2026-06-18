@@ -4,16 +4,10 @@
     "name": "DeckForge"
   },
   "status": "warn",
-  "freshness": "stale",
-  "updatedAt": "2026-04-24T16:05:12.015Z",
+  "freshness": "fresh",
+  "updatedAt": "2026-04-24T19:36:25.880Z",
   "summary": "no version · branch main · dirty tree · 3 open issues",
   "recommendations": [
-    {
-      "priority": "P2",
-      "title": "Refresh project activity",
-      "reason": "Latest activity is outside the freshness window.",
-      "command": null
-    },
     {
       "priority": "P2",
       "title": "Resolve working tree drift",
@@ -163,10 +157,10 @@
   ],
   "metadata": {
     "generator": "tools/ops/build-ops-state.mjs",
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "root": ".",
-    "lastCommitAt": "2026-04-18T00:35:50-04:00",
-    "lastCommitAgeMinutes": 9329,
+    "lastCommitAt": "2026-04-24T12:06:40-04:00",
+    "lastCommitAgeMinutes": 210,
     "staleAfterMinutes": 1440
   }
 }

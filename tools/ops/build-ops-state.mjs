@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const PROJECT = { id: "deckforge", name: "DeckForge" };
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const STALE_AFTER_MINUTES = 1440;
 
 const __filename = fileURLToPath(import.meta.url);
